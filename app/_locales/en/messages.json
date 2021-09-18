@@ -305,6 +305,9 @@
   "cancel": {
     "message": "Cancel"
   },
+  "cancelEdit": {
+    "message": "Cancel Edit"
+  },
   "cancelPopoverTitle": {
     "message": "Cancel transaction"
   },
@@ -1213,6 +1216,9 @@
   "ledgerLiveDialogHeader": {
     "message": "Prior to clicking confirm:"
   },
+  "ledgerLiveDialogStepFour": {
+    "message": "Enable smart contract data on your Ledger device"
+  },
   "ledgerLiveDialogStepOne": {
     "message": "Enable Use Ledger Live under Settings > Advanced"
   },
@@ -1551,6 +1557,18 @@
   "notifications6Title": {
     "message": "Ledger Support Update for Chrome Users",
     "description": "Title for a notification in the 'See What's New' popup. Lets users know about the Ledger support update"
+  },
+  "notifications7DescriptionOne": {
+    "message": "MetaMask v10.1.0 included new support for EIP-1559 transactions when using Ledger devices.",
+    "description": "Description of a notification in the 'See What's New' popup. Describes changes for ledger and EIP1559 in v10.1.0"
+  },
+  "notifications7DescriptionTwo": {
+    "message": "To complete transactions on Ethereum Mainnet, make sure your Ledger device has the latest firmware.",
+    "description": "Description of a notification in the 'See What's New' popup. Describes the need to update ledger firmware."
+  },
+  "notifications7Title": {
+    "message": "Ledger firmware update",
+    "description": "Title for a notification in the 'See What's New' popup. Notifies ledger users of the need to update firmware."
   },
   "ofTextNofM": {
     "message": "of"
@@ -1958,8 +1976,9 @@
   "sendTokens": {
     "message": "Send Tokens"
   },
-  "sentEther": {
-    "message": "sent ether"
+  "sendingNativeAsset": {
+    "message": "Sending $1",
+    "description": "$1 represents the native currency symbol for the current network (e.g. ETH or BNB)"
   },
   "separateEachWord": {
     "message": "Separate each word with a single space"
