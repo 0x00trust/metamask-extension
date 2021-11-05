@@ -2,7 +2,6 @@ import { createSelector } from 'reselect';
 import { addHexPrefix } from '../../app/scripts/lib/util';
 import {
   MAINNET_CHAIN_ID,
-  BSC_CHAIN_ID,
   TEST_CHAINS,
   NETWORK_TYPE_RPC,
   NATIVE_CURRENCY_TOKEN_IMAGE_MAP,
@@ -11,6 +10,7 @@ import {
   KEYRING_TYPES,
   WEBHID_CONNECTED_STATUSES,
   LEDGER_TRANSPORT_TYPES,
+  TRANSPORT_STATES,
 } from '../../shared/constants/hardware-wallets';
 
 import {
@@ -43,7 +43,10 @@ import {
   isAddressLedger,
   findKeyringForAddress,
 } from '../ducks/metamask/metamask';
-import { getLedgerWebHidConnectedStatus } from '../ducks/app/app';
+import {
+  getLedgerWebHidConnectedStatus,
+  getLedgerTransportStatus,
+} from '../ducks/app/app';
 
 /**
  * One of the only remaining valid uses of selecting the network subkey of the
@@ -304,10 +307,13 @@ export function getAddressBookEntry(state, address) {
   return entry;
 }
 
-export function getAddressBookEntryName(state, address) {
+export function getAddressBookEntryOrAccountName(state, address) {
   const entry =
-    getAddressBookEntry(state, address) || state.metamask.identities[address];
-  return entry && entry.name !== '' ? entry.name : shortenAddress(address);
+    getAddressBookEntry(state, address) ||
+    Object.values(state.metamask.identities).find((identity) =>
+      isEqualCaseInsensitive(identity.address, toChecksumHexAddress(address)),
+    );
+  return entry && entry.name !== '' ? entry.name : address;
 }
 
 export function accountsWithSendEtherInfoSelector(state) {
@@ -579,15 +585,19 @@ export function getShowWhatsNewPopup(state) {
 function getAllowedNotificationIds(state) {
   const currentKeyring = getCurrentKeyring(state);
   const currentKeyringIsLedger = currentKeyring?.type === KEYRING_TYPES.LEDGER;
+  const supportsWebHid = window.navigator.hid !== undefined;
+  const currentlyUsingLedgerLive =
+    getLedgerTransportType(state) === LEDGER_TRANSPORT_TYPES.LIVE;
 
   return {
-    1: true,
-    2: true,
-    3: true,
-    4: getCurrentChainId(state) === BSC_CHAIN_ID,
-    5: true,
-    6: currentKeyringIsLedger,
-    7: currentKeyringIsLedger,
+    1: false,
+    2: false,
+    3: false,
+    4: false,
+    5: false,
+    6: false,
+    7: false,
+    8: supportsWebHid && currentKeyringIsLedger && currentlyUsingLedgerLive,
   };
 }
 
@@ -659,9 +669,14 @@ export function doesAddressRequireLedgerHidConnection(state, address) {
   const webHidIsNotConnected =
     getLedgerWebHidConnectedStatus(state) !==
     WEBHID_CONNECTED_STATUSES.CONNECTED;
+  const ledgerTransportStatus = getLedgerTransportStatus(state);
+  const transportIsNotSuccessfullyCreated =
+    ledgerTransportStatus !== TRANSPORT_STATES.VERIFIED;
 
   return (
-    addressIsLedger && transportTypePreferenceIsWebHID && webHidIsNotConnected
+    addressIsLedger &&
+    transportTypePreferenceIsWebHID &&
+    (webHidIsNotConnected || transportIsNotSuccessfullyCreated)
   );
 }
 
@@ -672,4 +687,16 @@ export function doesAddressRequireLedgerHidConnection(state, address) {
  */
 export function getNewNetworkAdded(state) {
   return state.appState.newNetworkAdded;
+}
+
+export function getNetworksTabSelectedRpcUrl(state) {
+  return state.appState.networksTabSelectedRpcUrl;
+}
+
+export function getProvider(state) {
+  return state.metamask.provider;
+}
+
+export function getFrequentRpcListDetail(state) {
+  return state.metamask.frequentRpcListDetail;
 }

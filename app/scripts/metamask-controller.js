@@ -845,6 +845,10 @@ export default class MetamaskController extends EventEmitter {
         this.setLedgerTransportPreference,
         this,
       ),
+      attemptLedgerTransportCreation: nodeify(
+        this.attemptLedgerTransportCreation,
+        this,
+      ),
 
       // mobile
       fetchInfoToSync: nodeify(this.fetchInfoToSync, this),
@@ -1317,6 +1321,13 @@ export default class MetamaskController extends EventEmitter {
         accounts = await keyringController.getAccounts();
       }
 
+      // This must be set as soon as possible to communicate to the
+      // keyring's iframe and have the setting initialized properly
+      // Optimistically called to not block Metamask login due to
+      // Ledger Keyring GitHub downtime
+      const transportPreference = this.preferencesController.getLedgerTransportPreference();
+      this.setLedgerTransportPreference(transportPreference);
+
       // set new identities
       this.preferencesController.setAddresses(accounts);
       this.selectFirstIdentity();
@@ -1547,6 +1558,11 @@ export default class MetamaskController extends EventEmitter {
     keyring.network = this.networkController.getProviderConfig().type;
 
     return keyring;
+  }
+
+  async attemptLedgerTransportCreation() {
+    const keyring = await this.getKeyringForDevice('ledger');
+    return await keyring.attemptMakeApp();
   }
 
   /**
