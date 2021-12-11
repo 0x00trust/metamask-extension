@@ -7,11 +7,12 @@
     line-height: inherit;
   }
 
-  &__gasfee-label {
-    font-weight: bold;
+  &__gas-fee-warning {
+    color: $secondary-1;
   }
 
-  &__currency-container {
+  &__currency-container,
+  &__gasfee-label {
     position: relative;
   }
 }

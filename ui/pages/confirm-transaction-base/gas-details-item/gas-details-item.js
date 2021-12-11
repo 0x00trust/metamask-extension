@@ -1,7 +1,8 @@
 import React from 'react';
 import PropTypes from 'prop-types';
+import classNames from 'classnames';
 
-import { COLORS } from '../../../helpers/constants/design-system';
+import { COLORS, TYPOGRAPHY } from '../../../helpers/constants/design-system';
 import { PRIMARY, SECONDARY } from '../../../helpers/constants/common';
 import { hexWEIToDecGWEI } from '../../../helpers/utils/conversions.util';
 import { useI18nContext } from '../../../hooks/useI18nContext';
@@ -14,21 +15,22 @@ import InfoTooltip from '../../../components/ui/info-tooltip/info-tooltip';
 import LoadingHeartBeat from '../../../components/ui/loading-heartbeat';
 import TransactionDetailItem from '../../../components/app/transaction-detail-item/transaction-detail-item.component';
 import UserPreferencedCurrencyDisplay from '../../../components/app/user-preferenced-currency-display';
+import { useGasFeeContext } from '../../../contexts/gasFee';
 
-const HeartBeat = () =>
-  process.env.IN_TEST === 'true' ? null : <LoadingHeartBeat />;
-
-const GasDetailItem = ({
+const GasDetailsItem = ({
   hexMaximumTransactionFee,
   hexMinimumTransactionFee,
   isMainnet,
   maxFeePerGas,
   maxPriorityFeePerGas,
-  supportsEIP1559,
-  txData,
+  userAcknowledgedGasMissing,
   useNativeCurrencyAsPrimaryCurrency,
 }) => {
   const t = useI18nContext();
+  const { estimateUsed, hasSimulationError, transaction } = useGasFeeContext();
+
+  if (hasSimulationError && !userAcknowledgedGasMissing) return null;
+
   return (
     <TransactionDetailItem
       key="gas-item"
@@ -43,15 +45,15 @@ const GasDetailItem = ({
           <InfoTooltip
             contentText={
               <>
-                <Typography fontSize="12px">
+                <Typography tag={TYPOGRAPHY.Paragraph} variant={TYPOGRAPHY.H7}>
                   {t('transactionDetailGasTooltipIntro', [
                     isMainnet ? t('networkNameEthereum') : '',
                   ])}
                 </Typography>
-                <Typography fontSize="12px">
+                <Typography tag={TYPOGRAPHY.Paragraph} variant={TYPOGRAPHY.H7}>
                   {t('transactionDetailGasTooltipExplanation')}
                 </Typography>
-                <Typography fontSize="12px">
+                <Typography tag={TYPOGRAPHY.Paragraph} variant={TYPOGRAPHY.H7}>
                   <a
                     href="https://community.metamask.io/t/what-is-gas-why-do-transactions-take-so-long/3172"
                     target="_blank"
@@ -62,14 +64,14 @@ const GasDetailItem = ({
                 </Typography>
               </>
             }
-            position="top"
+            position="bottom"
           />
         </Box>
       }
       detailTitleColor={COLORS.BLACK}
       detailText={
         <div className="gas-details-item__currency-container">
-          <HeartBeat />
+          <LoadingHeartBeat />
           <UserPreferencedCurrencyDisplay
             type={SECONDARY}
             value={hexMinimumTransactionFee}
@@ -79,7 +81,7 @@ const GasDetailItem = ({
       }
       detailTotal={
         <div className="gas-details-item__currency-container">
-          <HeartBeat />
+          <LoadingHeartBeat />
           <UserPreferencedCurrencyDisplay
             type={PRIMARY}
             value={hexMinimumTransactionFee}
@@ -87,50 +89,59 @@ const GasDetailItem = ({
           />
         </div>
       }
-      subText={t('editGasSubTextFee', [
-        <Box key="editGasSubTextFeeLabel" display="inline-flex">
-          <Box marginRight={1} className="gas-details-item__gasfee-label">
-            <I18nValue messageKey="editGasSubTextFeeLabel" />
-          </Box>
-          <div
-            key="editGasSubTextFeeValue"
-            className="gas-details-item__currency-container"
+      subText={
+        <>
+          <Box
+            key="editGasSubTextFeeLabel"
+            display="inline-flex"
+            className={classNames('gas-details-item__gasfee-label', {
+              'gas-details-item__gas-fee-warning': estimateUsed === 'high',
+            })}
           >
-            <HeartBeat />
-            <UserPreferencedCurrencyDisplay
-              key="editGasSubTextFeeAmount"
-              type={PRIMARY}
-              value={hexMaximumTransactionFee}
-              hideLabel={!useNativeCurrencyAsPrimaryCurrency}
-            />
-          </div>
-        </Box>,
-      ])}
+            <LoadingHeartBeat />
+            <Box marginRight={1}>
+              <strong>
+                {estimateUsed === 'high' && '⚠ '}
+                <I18nValue messageKey="editGasSubTextFeeLabel" />
+              </strong>
+            </Box>
+            <div
+              key="editGasSubTextFeeValue"
+              className="gas-details-item__currency-container"
+            >
+              <LoadingHeartBeat />
+              <UserPreferencedCurrencyDisplay
+                key="editGasSubTextFeeAmount"
+                type={PRIMARY}
+                value={hexMaximumTransactionFee}
+                hideLabel={!useNativeCurrencyAsPrimaryCurrency}
+              />
+            </div>
+          </Box>
+        </>
+      }
       subTitle={
-        supportsEIP1559 && (
-          <GasTiming
-            maxPriorityFeePerGas={hexWEIToDecGWEI(
-              maxPriorityFeePerGas || txData.txParams.maxPriorityFeePerGas,
-            )}
-            maxFeePerGas={hexWEIToDecGWEI(
-              maxFeePerGas || txData.txParams.maxFeePerGas,
-            )}
-          />
-        )
+        <GasTiming
+          maxPriorityFeePerGas={hexWEIToDecGWEI(
+            maxPriorityFeePerGas || transaction.txParams.maxPriorityFeePerGas,
+          )}
+          maxFeePerGas={hexWEIToDecGWEI(
+            maxFeePerGas || transaction.txParams.maxFeePerGas,
+          )}
+        />
       }
     />
   );
 };
 
-GasDetailItem.propTypes = {
+GasDetailsItem.propTypes = {
   hexMaximumTransactionFee: PropTypes.string,
   hexMinimumTransactionFee: PropTypes.string,
   isMainnet: PropTypes.bool,
   maxFeePerGas: PropTypes.string,
   maxPriorityFeePerGas: PropTypes.string,
-  supportsEIP1559: PropTypes.bool,
-  txData: PropTypes.object,
+  userAcknowledgedGasMissing: PropTypes.bool.isRequired,
   useNativeCurrencyAsPrimaryCurrency: PropTypes.bool,
 };
 
-export default GasDetailItem;
+export default GasDetailsItem;
