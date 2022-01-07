@@ -19,6 +19,7 @@ import {
   TRUNCATED_NAME_CHAR_LIMIT,
   TRUNCATED_ADDRESS_END_CHARS,
 } from '../../../shared/constants/labels';
+import { toBigNumber } from '../../../shared/modules/conversion.utils';
 
 // formatData :: ( date: <Unix Timestamp> ) -> String
 export function formatDate(date, format = "M/d/y 'at' T") {
@@ -64,7 +65,9 @@ export function isDefaultMetaMaskChain(chainId) {
 
 // Both inputs should be strings. This method is currently used to compare tokenAddress hex strings.
 export function isEqualCaseInsensitive(value1, value2) {
-  if (typeof value1 !== 'string' || typeof value2 !== 'string') return false;
+  if (typeof value1 !== 'string' || typeof value2 !== 'string') {
+    return false;
+  }
   return value1.toLowerCase() === value2.toLowerCase();
 }
 
@@ -430,7 +433,9 @@ const MINUTE_CUTOFF = 90 * 60;
 const SECOND_CUTOFF = 90;
 
 export const toHumanReadableTime = (t, milliseconds) => {
-  if (milliseconds === undefined || milliseconds === null) return '';
+  if (milliseconds === undefined || milliseconds === null) {
+    return '';
+  }
   const seconds = Math.ceil(milliseconds / 1000);
   if (seconds <= SECOND_CUTOFF) {
     return t('gasTimingSecondsShort', [seconds]);
@@ -557,4 +562,13 @@ export function getAssetImageURL(image, ipfsGateway) {
     return util.getFormattedIpfsUrl(ipfsGateway, image, true);
   }
   return image;
+}
+
+export function roundToDecimalPlacesRemovingExtraZeroes(
+  numberish,
+  numberOfDecimalPlaces,
+) {
+  return toBigNumber.dec(
+    toBigNumber.dec(numberish).toFixed(numberOfDecimalPlaces),
+  );
 }

@@ -34,6 +34,7 @@ export const GAS_RECOMMENDATIONS = {
  * These represent types of gas estimation
  */
 export const PRIORITY_LEVELS = {
+  TEN_PERCENT_INCREASED: 'tenPercentIncreased',
   LOW: 'low',
   MEDIUM: 'medium',
   HIGH: 'high',

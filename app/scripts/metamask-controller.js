@@ -131,6 +131,7 @@ export default class MetamaskController extends EventEmitter {
     this.opts = opts;
     this.extension = opts.extension;
     this.platform = opts.platform;
+    this.notificationManager = opts.notificationManager;
     const initState = opts.initState || {};
     const version = this.platform.getVersion();
     this.recordFirstTimeInfo(initState);
@@ -1053,6 +1054,8 @@ export default class MetamaskController extends EventEmitter {
       safelistPhishingDomain: this.safelistPhishingDomain.bind(this),
       getRequestAccountTabIds: this.getRequestAccountTabIds,
       getOpenMetamaskTabsIds: this.getOpenMetamaskTabsIds,
+      markNotificationPopupAsAutomaticallyClosed: () =>
+        this.notificationManager.markAsAutomaticallyClosed(),
 
       // primary HD keyring management
       addNewAccount: this.addNewAccount.bind(this),
@@ -2758,6 +2761,10 @@ export default class MetamaskController extends EventEmitter {
           this.permissionController,
           { origin },
           { eth_accounts: {} },
+        ),
+        requestPermissionsForOrigin: this.permissionController.requestPermissions.bind(
+          this.permissionController,
+          { origin },
         ),
 
         // Custom RPC-related
