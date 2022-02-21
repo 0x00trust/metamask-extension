@@ -58,10 +58,8 @@ export const useGasItemFeeDetails = (priorityLevel) => {
     if (estimateUsed === PRIORITY_LEVELS.CUSTOM) {
       maxFeePerGas = maxFeePerGasValue;
       maxPriorityFeePerGas = maxPriorityFeePerGasValue;
-    } else if (advancedGasFeeValues) {
-      maxFeePerGas =
-        gasFeeEstimates.estimatedBaseFee *
-        parseFloat(advancedGasFeeValues.maxBaseFee);
+    } else if (advancedGasFeeValues && editGasMode !== EDIT_GAS_MODES.SWAPS) {
+      maxFeePerGas = advancedGasFeeValues.maxBaseFee;
       maxPriorityFeePerGas = advancedGasFeeValues.priorityFee;
     }
   } else if (
@@ -108,7 +106,7 @@ export const useGasItemFeeDetails = (priorityLevel) => {
         priorityLevel === PRIORITY_LEVELS.HIGH)
     ) {
       const estimateGreater = !gasEstimateGreaterThanGasUsedPlusTenPercent(
-        transaction,
+        transaction.previousGas || transaction.txParams,
         gasFeeEstimates,
         priorityLevel,
       );

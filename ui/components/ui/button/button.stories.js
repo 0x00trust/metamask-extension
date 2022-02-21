@@ -16,8 +16,6 @@ export default {
   },
   argTypes: {
     children: { control: 'text' },
-    disabled: { control: 'boolean' },
-    onClick: { action: 'clicked' },
     type: {
       control: {
         type: 'select',
@@ -30,11 +28,10 @@ export default {
         'danger',
         'danger-primary',
         'link',
+        'inline',
       ],
     },
-    submit: { control: 'boolean' },
     large: { control: 'boolean' },
-    className: { control: 'text' },
     icon: {
       control: {
         type: 'select',
@@ -44,6 +41,17 @@ export default {
         BuyIcon: <BuyIcon />,
       },
     },
+    submit: { control: 'boolean' },
+    disabled: { control: 'boolean' },
+    className: { control: 'text' },
+    onClick: { action: 'clicked' },
+  },
+  args: {
+    disabled: false,
+    large: false,
+    submit: false,
+    className: '',
+    rounded: true,
   },
 };
 
@@ -57,7 +65,7 @@ DefaultStory.args = {
   children: 'Default',
 };
 
-export const Types = (args) => (
+export const Type = (args) => (
   <>
     <Button {...args} type="default">
       {args.children || 'Default'}
@@ -80,17 +88,54 @@ export const Types = (args) => (
     <Button {...args} type="link">
       {args.children || 'Link'}
     </Button>
+    <Button {...args} type="inline">
+      {args.children || 'Inline'}
+    </Button>
   </>
 );
 
-export const LinkType = (args) => <Button {...args} type="link" />;
+Type.args = {
+  children: '',
+};
 
-LinkType.args = {
+export const TypeLink = (args) => (
+  <Button type={args.type}>{args.children}</Button>
+);
+
+TypeLink.args = {
+  href: 'https://metamask.io/',
+  type: 'link',
   children: 'Click me',
 };
 
-export const WithIcon = (args) => (
-  <Button {...args} type="primary" icon={<BuyIcon />}>
-    {args.children || 'Buy'}
+export const TypeInline = (args) => (
+  <div>
+    this is a inline button
+    <Button type={args.type}>{args.children}</Button>
+  </div>
+);
+
+TypeInline.args = {
+  type: 'inline',
+  children: 'Click me',
+};
+
+export const Icon = (args) => <Button {...args}>{args.children}</Button>;
+
+Icon.args = {
+  type: 'primary',
+  icon: <BuyIcon />,
+  children: 'Buy',
+};
+
+export const Submit = (args) => (
+  <Button type={args.type} submit={args.submit}>
+    {args.children}
   </Button>
 );
+
+Submit.args = {
+  type: 'primary',
+  submit: true,
+  children: 'Submit',
+};

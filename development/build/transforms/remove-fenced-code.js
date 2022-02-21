@@ -102,8 +102,13 @@ function createRemoveFencedCodeTransform(
   // To apply our code fencing transform, we concatenate all buffers and convert
   // them to a single string, then apply the actual transform function on that
   // string.
+
   /**
-   * @returns {Transform}
+   * Returns a transform stream that removes fenced code from JavaScript files. For non-JavaScript
+   * files, a pass-through stream is returned.
+   *
+   * @param filePath - The file path to transform.
+   * @returns {Transform} The transform stream.
    */
   return function removeFencedCodeTransform(filePath) {
     if (!['.js', '.cjs', '.mjs'].includes(path.extname(filePath))) {
@@ -195,9 +200,19 @@ const directiveParsingRegex = /^([A-Z]+):([A-Z_]+)(?:\(((?:\w+,)*\w+)\))?$/u;
  * a boolean indicating whether they were modified.
  */
 function removeFencedCode(filePath, typeOfCurrentBuild, fileContent) {
-  const matchedLines = [...fileContent.matchAll(linesWithFenceRegex)];
+  // Do not modify the file if we detect an inline sourcemap. For reasons
+  // yet to be determined, the transform receives every file twice while in
+  // watch mode, the second after Babel has transpiled the file. Babel adds
+  // inline source maps to the file, something we will never do in our own
+  // source files, so we use the existence of inline source maps to determine
+  // whether we should ignore the file.
+  if (/^\/\/# sourceMappingURL=/gmu.test(fileContent)) {
+    return [fileContent, false];
+  }
 
   // If we didn't match any lines, return the unmodified file contents.
+  const matchedLines = [...fileContent.matchAll(linesWithFenceRegex)];
+
   if (matchedLines.length === 0) {
     return [fileContent, false];
   }

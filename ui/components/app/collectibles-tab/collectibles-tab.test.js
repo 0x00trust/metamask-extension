@@ -136,6 +136,11 @@ const COLLECTIBLES_CONTRACTS = [
   },
 ];
 
+const collectiblesDropdownState = {
+  0x495f947276749ce646f68ac8c248420045cb7b5e: true,
+  0xdc7382eb0bc9c352a4cba23c909bda01e0206414: true,
+};
+
 const ACCOUNT_1 = '0x123';
 const ACCOUNT_2 = '0x456';
 
@@ -164,6 +169,7 @@ const render = ({
       selectedAddress,
       collectiblesDetectionNoticeDismissed,
       useCollectibleDetection,
+      collectiblesDropdownState,
     },
   });
   return renderWithProvider(<CollectiblesTab onAddNFT={onAddNFT} />, store);
@@ -173,12 +179,14 @@ describe('Collectible Items', () => {
   const detectCollectiblesStub = jest.fn();
   const setCollectiblesDetectionNoticeDismissedStub = jest.fn();
   const getStateStub = jest.fn();
-  const checkAndUpdateCollectiblesOwnershipStatusStub = jest.fn();
+  const checkAndUpdateAllCollectiblesOwnershipStatusStub = jest.fn();
+  const updateCollectibleDropDownStateStub = jest.fn();
   setBackgroundConnection({
     setCollectiblesDetectionNoticeDismissed: setCollectiblesDetectionNoticeDismissedStub,
     detectCollectibles: detectCollectiblesStub,
     getState: getStateStub,
-    checkAndUpdateCollectiblesOwnershipStatus: checkAndUpdateCollectiblesOwnershipStatusStub,
+    checkAndUpdateAllCollectiblesOwnershipStatus: checkAndUpdateAllCollectiblesOwnershipStatusStub,
+    updateCollectibleDropDownState: updateCollectibleDropDownStateStub,
   });
   const historyPushMock = jest.fn();
 
@@ -276,11 +284,13 @@ describe('Collectible Items', () => {
       });
       expect(detectCollectiblesStub).not.toHaveBeenCalled();
       expect(
-        checkAndUpdateCollectiblesOwnershipStatusStub,
+        checkAndUpdateAllCollectiblesOwnershipStatusStub,
       ).not.toHaveBeenCalled();
       fireEvent.click(screen.queryByText('Refresh list'));
       expect(detectCollectiblesStub).toHaveBeenCalled();
-      expect(checkAndUpdateCollectiblesOwnershipStatusStub).toHaveBeenCalled();
+      expect(
+        checkAndUpdateAllCollectiblesOwnershipStatusStub,
+      ).toHaveBeenCalled();
     });
 
     it('should render a link "Refresh list" when some collectibles are present on a non-mainnet chain, which, when clicked calls a method checkAndUpdateCollectiblesOwnershipStatus', () => {
@@ -291,10 +301,12 @@ describe('Collectible Items', () => {
         useCollectibleDetection: true,
       });
       expect(
-        checkAndUpdateCollectiblesOwnershipStatusStub,
+        checkAndUpdateAllCollectiblesOwnershipStatusStub,
       ).not.toHaveBeenCalled();
       fireEvent.click(screen.queryByText('Refresh list'));
-      expect(checkAndUpdateCollectiblesOwnershipStatusStub).toHaveBeenCalled();
+      expect(
+        checkAndUpdateAllCollectiblesOwnershipStatusStub,
+      ).toHaveBeenCalled();
     });
 
     it('should render a link "Enable Autodetect" when some collectibles are present and collectible auto-detection preference is set to false, which, when clicked sends user to the experimental tab of settings', () => {

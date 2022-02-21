@@ -22,6 +22,7 @@ const TransactionAlerts = ({
     estimateUsed,
     hasSimulationError,
     supportsEIP1559V2,
+    isNetworkBusy,
   } = useGasFeeContext();
   const pendingTransactions = useSelector(submittedPendingTransactionsSelector);
   const t = useI18nContext();
@@ -92,6 +93,7 @@ const TransactionAlerts = ({
       {balanceError && <ErrorMessage errorKey={INSUFFICIENT_FUNDS_ERROR_KEY} />}
       {estimateUsed === PRIORITY_LEVELS.LOW && (
         <ActionableMessage
+          dataTestId="low-gas-fee-alert"
           message={
             <Typography
               align="left"
@@ -107,6 +109,23 @@ const TransactionAlerts = ({
           type="warning"
         />
       )}
+      {isNetworkBusy ? (
+        <ActionableMessage
+          message={
+            <Typography
+              align="left"
+              margin={[0, 0]}
+              tag={TYPOGRAPHY.Paragraph}
+              variant={TYPOGRAPHY.H7}
+            >
+              <I18nValue messageKey="networkIsBusy" />
+            </Typography>
+          }
+          iconFillColor="#f8c000"
+          type="warning"
+          useIcon
+        />
+      ) : null}
     </div>
   );
 };

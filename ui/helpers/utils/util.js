@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 import * as ethUtil from 'ethereumjs-util';
 import { DateTime } from 'luxon';
 import { util } from '@metamask/controllers';
+import slip44 from '@metamask/slip44';
 import { addHexPrefix } from '../../../app/scripts/lib/util';
 import {
   GOERLI_CHAIN_ID,
@@ -45,6 +46,7 @@ export function formatDateWithYearContext(
 }
 /**
  * Determines if the provided chainId is a default MetaMask chain
+ *
  * @param {string} chainId - chainId to check
  */
 export function isDefaultMetaMaskChain(chainId) {
@@ -341,6 +343,8 @@ export function toPrecisionWithoutTrailingZeros(n, precision) {
 /**
  * Given and object where all values are strings, returns the same object with all values
  * now prefixed with '0x'
+ *
+ * @param obj
  */
 export function addHexPrefixToObjectValues(obj) {
   return Object.keys(obj).reduce((newObj, key) => {
@@ -352,12 +356,14 @@ export function addHexPrefixToObjectValues(obj) {
  * Given the standard set of information about a transaction, returns a transaction properly formatted for
  * publishing via JSON RPC and web3
  *
- * @param {boolean} [sendToken] - Indicates whether or not the transaciton is a token transaction
- * @param {string} data - A hex string containing the data to include in the transaction
- * @param {string} to - A hex address of the tx recipient address
- * @param {string} from - A hex address of the tx sender address
- * @param {string} gas - A hex representation of the gas value for the transaction
- * @param {string} gasPrice - A hex representation of the gas price for the transaction
+ * @param {object} options
+ * @param {boolean} [options.sendToken] - Indicates whether or not the transaciton is a token transaction
+ * @param {string} options.data - A hex string containing the data to include in the transaction
+ * @param {string} options.to - A hex address of the tx recipient address
+ * @param options.amount
+ * @param {string} options.from - A hex address of the tx sender address
+ * @param {string} options.gas - A hex representation of the gas value for the transaction
+ * @param {string} options.gasPrice - A hex representation of the gas price for the transaction
  * @returns {Object} An object ready for submission to the blockchain, with all values appropriately hex prefixed
  */
 export function constructTxParams({
@@ -568,7 +574,25 @@ export function roundToDecimalPlacesRemovingExtraZeroes(
   numberish,
   numberOfDecimalPlaces,
 ) {
-  return toBigNumber.dec(
-    toBigNumber.dec(numberish).toFixed(numberOfDecimalPlaces),
-  );
+  if (numberish === undefined || numberish === null) {
+    return '';
+  }
+  return toBigNumber
+    .dec(toBigNumber.dec(numberish).toFixed(numberOfDecimalPlaces))
+    .toNumber();
+}
+
+/**
+ * Gets the name of the SLIP-44 protocol corresponding to the specified
+ * `coin_type`.
+ *
+ * @param {string | number} coinType - The SLIP-44 `coin_type` value whose name
+ * to retrieve.
+ * @returns {string | undefined} The name of the protocol if found.
+ */
+export function coinTypeToProtocolName(coinType) {
+  if (String(coinType) === '1') {
+    return 'Test Networks';
+  }
+  return slip44[coinType]?.name || undefined;
 }

@@ -1,16 +1,17 @@
 import BigNumber from 'bignumber.js';
 import { addHexPrefix } from 'ethereumjs-util';
 
+import { GAS_RECOMMENDATIONS } from '../../../shared/constants/gas';
 import { multiplyCurrencies } from '../../../shared/modules/conversion.utils';
 import { bnGreaterThan } from './util';
 import { hexWEIToDecGWEI } from './conversions.util';
 
 export const gasEstimateGreaterThanGasUsedPlusTenPercent = (
-  transaction,
+  gasUsed,
   gasFeeEstimates,
   estimate,
 ) => {
-  let { maxFeePerGas: maxFeePerGasInTransaction } = transaction.txParams;
+  let { maxFeePerGas: maxFeePerGasInTransaction } = gasUsed;
   maxFeePerGasInTransaction = new BigNumber(
     hexWEIToDecGWEI(addTenPercentAndRound(maxFeePerGasInTransaction)),
   );
@@ -25,7 +26,8 @@ export const gasEstimateGreaterThanGasUsedPlusTenPercent = (
  * by 1.10 to get bare minimum new gas fee.
  *
  * @param {string | undefined} hexStringValue - hex value in wei to be incremented
- * @returns {string | undefined} - hex value in WEI 10% higher than the param.
+ * @param conversionOptions
+ * @returns {string | undefined} hex value in WEI 10% higher than the param.
  */
 export function addTenPercent(hexStringValue, conversionOptions = {}) {
   if (hexStringValue === undefined) {
@@ -47,8 +49,16 @@ export function addTenPercent(hexStringValue, conversionOptions = {}) {
  * by 1.10 to get bare minimum new gas fee.
  *
  * @param {string | undefined} hexStringValue - hex value in wei to be incremented
- * @returns {string | undefined} - hex value in WEI 10% higher than the param.
+ * @returns {string | undefined} hex value in WEI 10% higher than the param.
  */
 export function addTenPercentAndRound(hexStringValue) {
   return addTenPercent(hexStringValue, { numberOfDecimals: 0 });
+}
+
+export function isMetamaskSuggestedGasEstimate(estimate) {
+  return [
+    GAS_RECOMMENDATIONS.HIGH,
+    GAS_RECOMMENDATIONS.MEDIUM,
+    GAS_RECOMMENDATIONS.LOW,
+  ].includes(estimate);
 }

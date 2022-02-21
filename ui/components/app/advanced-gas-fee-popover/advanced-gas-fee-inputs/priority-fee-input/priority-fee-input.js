@@ -2,7 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 
 import { HIGH_FEE_WARNING_MULTIPLIER } from '../../../../../pages/send/send.constants';
-import { PRIORITY_LEVELS } from '../../../../../../shared/constants/gas';
+import {
+  EDIT_GAS_MODES,
+  PRIORITY_LEVELS,
+} from '../../../../../../shared/constants/gas';
 import { SECONDARY } from '../../../../../helpers/constants/common';
 import { decGWEIToHexWEI } from '../../../../../helpers/utils/conversions.util';
 import { getAdvancedGasFeeValues } from '../../../../../selectors';
@@ -49,6 +52,7 @@ const PriorityFeeInput = () => {
     setMaxPriorityFeePerGas,
   } = useAdvancedGasFeePopoverContext();
   const {
+    editGasMode,
     estimateUsed,
     gasFeeEstimates,
     maxPriorityFeePerGas,
@@ -58,13 +62,13 @@ const PriorityFeeInput = () => {
     historicalPriorityFeeRange,
     priorityFeeTrend,
   } = gasFeeEstimates;
-  const [feeTrend, setFeeTrend] = useState(priorityFeeTrend);
   const [priorityFeeError, setPriorityFeeError] = useState();
 
   const [priorityFee, setPriorityFee] = useState(() => {
     if (
       estimateUsed !== PRIORITY_LEVELS.CUSTOM &&
-      advancedGasFeeValues?.priorityFee
+      advancedGasFeeValues?.priorityFee &&
+      editGasMode !== EDIT_GAS_MODES.SWAPS
     ) {
       return advancedGasFeeValues.priorityFee;
     }
@@ -90,27 +94,22 @@ const PriorityFeeInput = () => {
       error === 'editGasMaxPriorityFeeBelowMinimumV2',
     );
     setPriorityFeeError(error);
-    if (priorityFeeTrend !== 'level' && priorityFeeTrend !== feeTrend) {
-      setFeeTrend(priorityFeeTrend);
-    }
   }, [
-    feeTrend,
-    priorityFeeTrend,
     gasFeeEstimates,
     priorityFee,
     setErrorValue,
     setMaxPriorityFeePerGas,
     setPriorityFeeError,
-    setFeeTrend,
   ]);
 
   return (
-    <Box margin={[0, 2]}>
+    <Box margin={[4, 2, 0, 2]} className="priority-fee-input">
       <FormField
+        dataTestId="priority-fee-input"
         error={priorityFeeError ? t(priorityFeeError) : ''}
         onChange={updatePriorityFee}
         titleText={t('priorityFeeProperCase')}
-        titleUnit="(GWEI)"
+        titleUnit={`(${t('gwei')})`}
         tooltipText={t('advancedPriorityFeeToolTip')}
         value={priorityFee}
         detailText={`≈ ${priorityFeeInFiat}`}
@@ -119,7 +118,7 @@ const PriorityFeeInput = () => {
       <AdvancedGasFeeInputSubtext
         latest={renderFeeRange(latestPriorityFeeRange)}
         historical={renderFeeRange(historicalPriorityFeeRange)}
-        feeTrend={feeTrend}
+        feeTrend={priorityFeeTrend}
       />
     </Box>
   );
