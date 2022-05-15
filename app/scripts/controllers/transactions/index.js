@@ -3,13 +3,12 @@ import { ObservableStore } from '@metamask/obs-store';
 import { bufferToHex, keccak, toBuffer, isHexString } from 'ethereumjs-util';
 import EthQuery from 'ethjs-query';
 import { ethErrors } from 'eth-rpc-errors';
-import abi from 'human-standard-token-abi';
 import Common from '@ethereumjs/common';
 import { TransactionFactory } from '@ethereumjs/tx';
-import { ethers } from 'ethers';
 import NonceTracker from 'nonce-tracker';
 import log from 'loglevel';
 import BigNumber from 'bignumber.js';
+import { merge, pickBy } from 'lodash';
 import cleanErrorStack from '../../lib/cleanErrorStack';
 import {
   hexToBn,
@@ -19,10 +18,12 @@ import {
   getChainType,
 } from '../../lib/util';
 import { TRANSACTION_NO_CONTRACT_ERROR_KEY } from '../../../../ui/helpers/constants/error-keys';
+import { calcGasTotal } from '../../../../ui/pages/send/send.utils';
 import { getSwapsTokensReceivedFromTxMeta } from '../../../../ui/pages/swaps/swaps.util';
 import {
   hexWEIToDecGWEI,
   decimalToHex,
+  hexWEIToDecETH,
 } from '../../../../ui/helpers/utils/conversions.util';
 import {
   TRANSACTION_STATUSES,
@@ -40,27 +41,38 @@ import {
   PRIORITY_LEVELS,
 } from '../../../../shared/constants/gas';
 import { decGWEIToHexWEI } from '../../../../shared/modules/conversion.utils';
+import { EVENT } from '../../../../shared/constants/metametrics';
 import {
   HARDFORKS,
   MAINNET,
   NETWORK_TYPE_RPC,
   CHAIN_ID_TO_GAS_LIMIT_BUFFER_MAP,
 } from '../../../../shared/constants/network';
-import { isEIP1559Transaction } from '../../../../shared/modules/transaction.utils';
-import { readAddressAsContract } from '../../../../shared/modules/contract-utils';
-import { isEqualCaseInsensitive } from '../../../../ui/helpers/utils/util';
+import {
+  determineTransactionAssetType,
+  determineTransactionType,
+  isEIP1559Transaction,
+} from '../../../../shared/modules/transaction.utils';
+import { ORIGIN_METAMASK } from '../../../../shared/constants/app';
 import TransactionStateManager from './tx-state-manager';
 import TxGasUtil from './tx-gas-utils';
 import PendingTransactionTracker from './pending-tx-tracker';
 import * as txUtils from './lib/util';
-
-const hstInterface = new ethers.utils.Interface(abi);
 
 const MAX_MEMSTORE_TX_LIST_SIZE = 100; // Number of transactions (by unique nonces) to keep in memory
 
 const SWAP_TRANSACTION_TYPES = [
   TRANSACTION_TYPES.SWAP,
   TRANSACTION_TYPES.SWAP_APPROVAL,
+];
+
+// Only certain types of transactions should be allowed to be specified when
+// adding a new unapproved transaction.
+const VALID_UNAPPROVED_TRANSACTION_TYPES = [
+  ...SWAP_TRANSACTION_TYPES,
+  TRANSACTION_TYPES.SIMPLE_SEND,
+  TRANSACTION_TYPES.TOKEN_METHOD_TRANSFER,
+  TRANSACTION_TYPES.TOKEN_METHOD_TRANSFER_FROM,
 ];
 
 /**
@@ -130,6 +142,9 @@ export default class TransactionController extends EventEmitter {
     this.updateEventFragment = opts.updateEventFragment;
     this.finalizeEventFragment = opts.finalizeEventFragment;
     this.getEventFragmentById = opts.getEventFragmentById;
+    this.getDeviceModel = opts.getDeviceModel;
+    this.getAccountType = opts.getAccountType;
+    this.getTokenStandardAndDetails = opts.getTokenStandardAndDetails;
 
     this.memStore = new ObservableStore({});
     this.query = new EthQuery(this.provider);
@@ -347,6 +362,324 @@ export default class TransactionController extends EventEmitter {
     });
   }
 
+  // ====================================================================================================================================================
+
+  /**
+   * @param {number} txId
+   * @returns {TransactionMeta} the txMeta who matches the given id if none found
+   * for the network returns undefined
+   */
+  _getTransaction(txId) {
+    const { transactions } = this.store.getState();
+    return transactions[txId];
+  }
+
+  /**
+   * @param {number} txId
+   * @returns {boolean}
+   */
+  _isUnapprovedTransaction(txId) {
+    return (
+      this.txStateManager.getTransaction(txId).status ===
+      TRANSACTION_STATUSES.UNAPPROVED
+    );
+  }
+
+  /**
+   * @param {number} txId
+   * @param {string} fnName
+   */
+  _throwErrorIfNotUnapprovedTx(txId, fnName) {
+    if (!this._isUnapprovedTransaction(txId)) {
+      throw new Error(
+        `TransactionsController: Can only call ${fnName} on an unapproved transaction.
+         Current tx status: ${this.txStateManager.getTransaction(txId).status}`,
+      );
+    }
+  }
+
+  _updateTransaction(txId, proposedUpdate, note) {
+    const txMeta = this.txStateManager.getTransaction(txId);
+    const updated = merge(txMeta, proposedUpdate);
+    this.txStateManager.updateTransaction(updated, note);
+  }
+
+  /**
+   * updates the params that are editible in the send edit flow
+   *
+   * @param {string} txId - transaction id
+   * @param {object} previousGasParams - holds the parameter to update
+   * @param {string} previousGasParams.maxFeePerGas
+   * @param {string} previousGasParams.maxPriorityFeePerGas
+   * @param {string} previousGasParams.gasLimit
+   * @returns {TransactionMeta} the txMeta of the updated transaction
+   */
+  updatePreviousGasParams(
+    txId,
+    { maxFeePerGas, maxPriorityFeePerGas, gasLimit },
+  ) {
+    const previousGasParams = {
+      previousGas: {
+        maxFeePerGas,
+        maxPriorityFeePerGas,
+        gasLimit,
+      },
+    };
+
+    // only update what is defined
+    previousGasParams.previousGas = pickBy(previousGasParams.previousGas);
+    const note = `Update Previous Gas for ${txId}`;
+    this._updateTransaction(txId, previousGasParams, note);
+    return this._getTransaction(txId);
+  }
+
+  /**
+   *
+   * @param {string} txId - transaction id
+   * @param {object} editableParams - holds the eip1559 fees parameters
+   * @param {object} editableParams.data
+   * @param {string} editableParams.from
+   * @param {string} editableParams.to
+   * @param {string} editableParams.value
+   * @param {string} editableParams.gas
+   * @param {string} editableParams.gasPrice
+   * @returns {TransactionMeta} the txMeta of the updated transaction
+   */
+  updateEditableParams(txId, { data, from, to, value, gas, gasPrice }) {
+    this._throwErrorIfNotUnapprovedTx(txId, 'updateEditableParams');
+
+    const editableParams = {
+      txParams: {
+        data,
+        from,
+        to,
+        value,
+        gas,
+        gasPrice,
+      },
+    };
+
+    // only update what is defined
+    editableParams.txParams = pickBy(editableParams.txParams);
+    const note = `Update Editable Params for ${txId}`;
+    this._updateTransaction(txId, editableParams, note);
+    return this._getTransaction(txId);
+  }
+
+  /**
+   * updates the gas fees of the transaction with id if the transaction state is unapproved
+   *
+   * @param {string} txId - transaction id
+   * @param {object} txGasFees - holds the gas fees parameters
+   * @param {string} txGasFees.gasLimit
+   * @param {string} txGasFees.gasPrice
+   * @param {string} txGasFees.maxPriorityFeePerGas
+   * @param {string} txGasFees.maxFeePerGas
+   * @param {string} txGasFees.estimateUsed
+   * @param {string} txGasFees.estimateSuggested
+   * @param {string} txGasFees.defaultGasEstimates
+   * @param {string} txGasFees.gas
+   * @param {string} txGasFees.originalGasEstimate
+   * @param {string} txGasFees.userEditedGasLimit
+   * @param {string} txGasFees.userFeeLevel
+   * @returns {TransactionMeta} the txMeta of the updated transaction
+   */
+  updateTransactionGasFees(
+    txId,
+    {
+      gas,
+      gasLimit,
+      gasPrice,
+      maxPriorityFeePerGas,
+      maxFeePerGas,
+      estimateUsed,
+      estimateSuggested,
+      defaultGasEstimates,
+      originalGasEstimate,
+      userEditedGasLimit,
+      userFeeLevel,
+    },
+  ) {
+    this._throwErrorIfNotUnapprovedTx(txId, 'updateTransactionGasFees');
+
+    let txGasFees = {
+      txParams: {
+        gas,
+        gasLimit,
+        gasPrice,
+        maxPriorityFeePerGas,
+        maxFeePerGas,
+      },
+      estimateUsed,
+      estimateSuggested,
+      defaultGasEstimates,
+      originalGasEstimate,
+      userEditedGasLimit,
+      userFeeLevel,
+    };
+
+    // only update what is defined
+    txGasFees.txParams = pickBy(txGasFees.txParams);
+    txGasFees = pickBy(txGasFees);
+    const note = `Update Transaction Gas Fees for ${txId}`;
+    this._updateTransaction(txId, txGasFees, note);
+    return this._getTransaction(txId);
+  }
+
+  /**
+   * updates the estimate base fees of the transaction with id if the transaction state is unapproved
+   *
+   * @param {string} txId - transaction id
+   * @param {object} txEstimateBaseFees - holds the estimate base fees parameters
+   * @param {string} txEstimateBaseFees.estimatedBaseFee
+   * @param {string} txEstimateBaseFees.decEstimatedBaseFee
+   * @returns {TransactionMeta} the txMeta of the updated transaction
+   */
+  updateTransactionEstimatedBaseFee(
+    txId,
+    { estimatedBaseFee, decEstimatedBaseFee },
+  ) {
+    this._throwErrorIfNotUnapprovedTx(
+      txId,
+      'updateTransactionEstimatedBaseFee',
+    );
+
+    let txEstimateBaseFees = { estimatedBaseFee, decEstimatedBaseFee };
+    // only update what is defined
+    txEstimateBaseFees = pickBy(txEstimateBaseFees);
+
+    const note = `Update Transaction Estimated Base Fees for ${txId}`;
+    this._updateTransaction(txId, txEstimateBaseFees, note);
+    return this._getTransaction(txId);
+  }
+
+  /**
+   * updates a swap approval transaction with provided metadata and source token symbol
+   *  if the transaction state is unapproved.
+   *
+   * @param {string} txId
+   * @param {object} swapApprovalTransaction - holds the metadata and token symbol
+   * @param {string} swapApprovalTransaction.type
+   * @param {string} swapApprovalTransaction.sourceTokenSymbol
+   * @returns {TransactionMeta} the txMeta of the updated transaction
+   */
+  updateSwapApprovalTransaction(txId, { type, sourceTokenSymbol }) {
+    this._throwErrorIfNotUnapprovedTx(txId, 'updateSwapApprovalTransaction');
+
+    let swapApprovalTransaction = { type, sourceTokenSymbol };
+    // only update what is defined
+    swapApprovalTransaction = pickBy(swapApprovalTransaction);
+
+    const note = `Update Swap Approval Transaction for ${txId}`;
+    this._updateTransaction(txId, swapApprovalTransaction, note);
+    return this._getTransaction(txId);
+  }
+
+  /**
+   * updates a swap transaction with provided metadata and source token symbol
+   *  if the transaction state is unapproved.
+   *
+   * @param {string} txId
+   * @param {object} swapTransaction - holds the metadata
+   * @param {string} swapTransaction.sourceTokenSymbol
+   * @param {string} swapTransaction.destinationTokenSymbol
+   * @param {string} swapTransaction.type
+   * @param {string} swapTransaction.destinationTokenDecimals
+   * @param {string} swapTransaction.destinationTokenAddress
+   * @param {string} swapTransaction.swapMetaData
+   * @param {string} swapTransaction.swapTokenValue
+   * @param {string} swapTransaction.estimatedBaseFee
+   * @param {string} swapTransaction.approvalTxId
+   * @returns {TransactionMeta} the txMeta of the updated transaction
+   */
+  updateSwapTransaction(
+    txId,
+    {
+      sourceTokenSymbol,
+      destinationTokenSymbol,
+      type,
+      destinationTokenDecimals,
+      destinationTokenAddress,
+      swapMetaData,
+      swapTokenValue,
+      estimatedBaseFee,
+      approvalTxId,
+    },
+  ) {
+    this._throwErrorIfNotUnapprovedTx(txId, 'updateSwapTransaction');
+
+    let swapTransaction = {
+      sourceTokenSymbol,
+      destinationTokenSymbol,
+      type,
+      destinationTokenDecimals,
+      destinationTokenAddress,
+      swapMetaData,
+      swapTokenValue,
+      estimatedBaseFee,
+      approvalTxId,
+    };
+
+    // only update what is defined
+    swapTransaction = pickBy(swapTransaction);
+
+    const note = `Update Swap Transaction for ${txId}`;
+    this._updateTransaction(txId, swapTransaction, note);
+    return this._getTransaction(txId);
+  }
+
+  /**
+   * updates a transaction's user settings only if the transaction state is unapproved
+   *
+   * @param {string} txId
+   * @param {object} userSettings - holds the metadata
+   * @param {string} userSettings.userEditedGasLimit
+   * @param {string} userSettings.userFeeLevel
+   * @returns {TransactionMeta} the txMeta of the updated transaction
+   */
+  updateTransactionUserSettings(txId, { userEditedGasLimit, userFeeLevel }) {
+    this._throwErrorIfNotUnapprovedTx(txId, 'updateTransactionUserSettings');
+
+    let userSettings = { userEditedGasLimit, userFeeLevel };
+    // only update what is defined
+    userSettings = pickBy(userSettings);
+
+    const note = `Update User Settings for ${txId}`;
+    this._updateTransaction(txId, userSettings, note);
+    return this._getTransaction(txId);
+  }
+
+  /**
+   * append new sendFlowHistory to the transaction with id if the transaction
+   * state is unapproved. Returns the updated transaction.
+   *
+   * @param {string} txId - transaction id
+   * @param {Array<{ entry: string, timestamp: number }>} sendFlowHistory -
+   *  history to add to the sendFlowHistory property of txMeta.
+   * @returns {TransactionMeta} the txMeta of the updated transaction
+   */
+  updateTransactionSendFlowHistory(txId, sendFlowHistory) {
+    this._throwErrorIfNotUnapprovedTx(txId, 'updateTransactionSendFlowHistory');
+    const txMeta = this._getTransaction(txId);
+
+    // only update what is defined
+    const note = `Update sendFlowHistory for ${txId}`;
+
+    this.txStateManager.updateTransaction(
+      {
+        ...txMeta,
+        sendFlowHistory: [
+          ...(txMeta?.sendFlowHistory ?? []),
+          ...sendFlowHistory,
+        ],
+      },
+      note,
+    );
+    return this._getTransaction(txId);
+  }
+
+  // ====================================================================================================================================================
+
   /**
    * Validates and generates a txMeta with defaults and puts it in txStateManager
    * store.
@@ -354,12 +687,18 @@ export default class TransactionController extends EventEmitter {
    * @param txParams
    * @param origin
    * @param transactionType
+   * @param sendFlowHistory
    * @returns {txMeta}
    */
-  async addUnapprovedTransaction(txParams, origin, transactionType) {
+  async addUnapprovedTransaction(
+    txParams,
+    origin,
+    transactionType,
+    sendFlowHistory = [],
+  ) {
     if (
       transactionType !== undefined &&
-      !SWAP_TRANSACTION_TYPES.includes(transactionType)
+      !VALID_UNAPPROVED_TRANSACTION_TYPES.includes(transactionType)
     ) {
       throw new Error(
         `TransactionController - invalid transactionType value: ${transactionType}`,
@@ -376,14 +715,15 @@ export default class TransactionController extends EventEmitter {
      * `generateTxMeta` adds the default txMeta properties to the passed object.
      * These include the tx's `id`. As we use the id for determining order of
      * txes in the tx-state-manager, it is necessary to call the asynchronous
-     * method `this._determineTransactionType` after `generateTxMeta`.
+     * method `determineTransactionType` after `generateTxMeta`.
      */
     let txMeta = this.txStateManager.generateTxMeta({
       txParams: normalizedTxParams,
       origin,
+      sendFlowHistory,
     });
 
-    if (origin === 'metamask') {
+    if (origin === ORIGIN_METAMASK) {
       // Assert the from address is the selected address
       if (normalizedTxParams.from !== this.getSelectedAddress()) {
         throw ethErrors.rpc.internal({
@@ -404,8 +744,9 @@ export default class TransactionController extends EventEmitter {
       }
     }
 
-    const { type, getCodeResponse } = await this._determineTransactionType(
+    const { type, getCodeResponse } = await determineTransactionType(
       txParams,
+      this.query,
     );
     txMeta.type = transactionType || type;
 
@@ -491,7 +832,7 @@ export default class TransactionController extends EventEmitter {
         //  then we set maxFeePerGas and maxPriorityFeePerGas to the suggested gasPrice.
         txMeta.txParams.maxFeePerGas = txMeta.txParams.gasPrice;
         txMeta.txParams.maxPriorityFeePerGas = txMeta.txParams.gasPrice;
-        if (eip1559V2Enabled && txMeta.origin !== 'metamask') {
+        if (eip1559V2Enabled && txMeta.origin !== ORIGIN_METAMASK) {
           txMeta.userFeeLevel = PRIORITY_LEVELS.DAPP_SUGGESTED;
         } else {
           txMeta.userFeeLevel = CUSTOM_GAS_ESTIMATE;
@@ -502,7 +843,7 @@ export default class TransactionController extends EventEmitter {
             defaultMaxPriorityFeePerGas &&
             !txMeta.txParams.maxFeePerGas &&
             !txMeta.txParams.maxPriorityFeePerGas) ||
-          txMeta.origin === 'metamask'
+          txMeta.origin === ORIGIN_METAMASK
         ) {
           txMeta.userFeeLevel = GAS_RECOMMENDATIONS.MEDIUM;
         } else if (eip1559V2Enabled) {
@@ -1462,67 +1803,6 @@ export default class TransactionController extends EventEmitter {
   }
 
   /**
-   * @typedef { 'transfer' | 'approve' | 'transferfrom' | 'contractInteraction'| 'simpleSend' } InferrableTransactionTypes
-   */
-
-  /**
-   * @typedef {Object} InferTransactionTypeResult
-   * @property {InferrableTransactionTypes} type - The type of transaction
-   * @property {string} getCodeResponse - The contract code, in hex format if
-   *  it exists. '0x0' or '0x' are also indicators of non-existent contract
-   *  code
-   */
-
-  /**
-   * Determines the type of the transaction by analyzing the txParams.
-   * This method will return one of the types defined in shared/constants/transactions
-   * It will never return TRANSACTION_TYPE_CANCEL or TRANSACTION_TYPE_RETRY as these
-   * represent specific events that we control from the extension and are added manually
-   * at transaction creation.
-   *
-   * @param {Object} txParams - Parameters for the transaction
-   * @returns {InferTransactionTypeResult}
-   */
-  async _determineTransactionType(txParams) {
-    const { data, to } = txParams;
-    let name;
-    try {
-      name = data && hstInterface.parseTransaction({ data }).name;
-    } catch (error) {
-      log.debug('Failed to parse transaction data.', error, data);
-    }
-
-    const tokenMethodName = [
-      TRANSACTION_TYPES.TOKEN_METHOD_APPROVE,
-      TRANSACTION_TYPES.TOKEN_METHOD_TRANSFER,
-      TRANSACTION_TYPES.TOKEN_METHOD_TRANSFER_FROM,
-    ].find((methodName) => isEqualCaseInsensitive(methodName, name));
-
-    let result;
-    if (data && tokenMethodName) {
-      result = tokenMethodName;
-    } else if (data && !to) {
-      result = TRANSACTION_TYPES.DEPLOY_CONTRACT;
-    }
-
-    let contractCode;
-
-    if (!result) {
-      const {
-        contractCode: resultCode,
-        isContractAddress,
-      } = await readAddressAsContract(this.query, to);
-
-      contractCode = resultCode;
-      result = isContractAddress
-        ? TRANSACTION_TYPES.CONTRACT_INTERACTION
-        : TRANSACTION_TYPES.SIMPLE_SEND;
-    }
-
-    return { type: result, getCodeResponse: contractCode };
-  }
-
-  /**
    * Sets other txMeta statuses to dropped if the txMeta that has been confirmed has other transactions
    * in the list have the same nonce
    *
@@ -1548,7 +1828,10 @@ export default class TransactionController extends EventEmitter {
         txMeta,
         'transactions/pending-tx-tracker#event: tx:confirmed reference to confirmed txHash with same nonce',
       );
-      this._dropTransaction(otherTxMeta.id);
+      // Drop any transaction that wasn't previously failed (off chain failure)
+      if (otherTxMeta.status !== TRANSACTION_STATUSES.FAILED) {
+        this._dropTransaction(otherTxMeta.id);
+      }
     });
   }
 
@@ -1596,13 +1879,37 @@ export default class TransactionController extends EventEmitter {
     this.memStore.updateState({ unapprovedTxs, currentNetworkTxList });
   }
 
+  _calculateTransactionsCost(txMeta, approvalTxMeta) {
+    let approvalGasCost = '0x0';
+    if (approvalTxMeta?.txReceipt) {
+      approvalGasCost = calcGasTotal(
+        approvalTxMeta.txReceipt.gasUsed,
+        approvalTxMeta.txReceipt.effectiveGasPrice,
+      );
+    }
+    const tradeGasCost = calcGasTotal(
+      txMeta.txReceipt.gasUsed,
+      txMeta.txReceipt.effectiveGasPrice,
+    );
+    const tradeAndApprovalGasCost = new BigNumber(tradeGasCost, 16)
+      .plus(approvalGasCost, 16)
+      .toString(16);
+    return {
+      approvalGasCostInEth: Number(hexWEIToDecETH(approvalGasCost)),
+      tradeGasCostInEth: Number(hexWEIToDecETH(tradeGasCost)),
+      tradeAndApprovalGasCostInEth: Number(
+        hexWEIToDecETH(tradeAndApprovalGasCost),
+      ),
+    };
+  }
+
   _trackSwapsMetrics(txMeta, approvalTxMeta) {
     if (this._getParticipateInMetrics() && txMeta.swapMetaData) {
       if (txMeta.txReceipt.status === '0x0') {
         this._trackMetaMetricsEvent({
           event: 'Swap Failed',
           sensitiveProperties: { ...txMeta.swapMetaData },
-          category: 'swaps',
+          category: EVENT.CATEGORIES.SWAPS,
         });
       } else {
         const tokensReceived = getSwapsTokensReceivedFromTxMeta(
@@ -1630,14 +1937,23 @@ export default class TransactionController extends EventEmitter {
                 .round(2)}%`
             : null;
 
+        const transactionsCost = this._calculateTransactionsCost(
+          txMeta,
+          approvalTxMeta,
+        );
+
         this._trackMetaMetricsEvent({
           event: 'Swap Completed',
-          category: 'swaps',
+          category: EVENT.CATEGORIES.SWAPS,
           sensitiveProperties: {
             ...txMeta.swapMetaData,
             token_to_amount_received: tokensReceived,
             quote_vs_executionRatio: quoteVsExecutionRatio,
             estimated_vs_used_gasRatio: estimatedVsUsedGasRatio,
+            approval_gas_cost_in_eth: transactionsCost.approvalGasCostInEth,
+            trade_gas_cost_in_eth: transactionsCost.tradeGasCostInEth,
+            trade_and_approval_gas_cost_in_eth:
+              transactionsCost.tradeAndApprovalGasCostInEth,
           },
         });
       }
@@ -1662,7 +1978,13 @@ export default class TransactionController extends EventEmitter {
       defaultGasEstimates,
       metamaskNetworkId: network,
     } = txMeta;
-    const source = referrer === 'metamask' ? 'user' : 'dapp';
+    const source = referrer === ORIGIN_METAMASK ? 'user' : 'dapp';
+
+    const { assetType, tokenStandard } = await determineTransactionAssetType(
+      txMeta,
+      this.query,
+      this.getTokenStandardAndDetails,
+    );
 
     const gasParams = {};
 
@@ -1735,6 +2057,10 @@ export default class TransactionController extends EventEmitter {
       eip_1559_version: eip1559Version,
       gas_edit_type: 'none',
       gas_edit_attempted: 'none',
+      account_type: await this.getAccountType(this.getSelectedAddress()),
+      device_model: await this.getDeviceModel(this.getSelectedAddress()),
+      asset_type: assetType,
+      token_standard: tokenStandard,
     };
 
     const sensitiveProperties = {
@@ -1795,7 +2121,7 @@ export default class TransactionController extends EventEmitter {
       // occur.
       case TRANSACTION_EVENTS.ADDED:
         this.createEventFragment({
-          category: 'Transactions',
+          category: EVENT.CATEGORIES.TRANSACTIONS,
           initialEvent: TRANSACTION_EVENTS.ADDED,
           successEvent: TRANSACTION_EVENTS.APPROVED,
           failureEvent: TRANSACTION_EVENTS.REJECTED,
@@ -1816,7 +2142,7 @@ export default class TransactionController extends EventEmitter {
       case TRANSACTION_EVENTS.APPROVED:
       case TRANSACTION_EVENTS.REJECTED:
         this.createEventFragment({
-          category: 'Transactions',
+          category: EVENT.CATEGORIES.TRANSACTIONS,
           successEvent: TRANSACTION_EVENTS.APPROVED,
           failureEvent: TRANSACTION_EVENTS.REJECTED,
           properties,
@@ -1837,7 +2163,7 @@ export default class TransactionController extends EventEmitter {
       // properties to the transaction event.
       case TRANSACTION_EVENTS.SUBMITTED:
         this.createEventFragment({
-          category: 'Transactions',
+          category: EVENT.CATEGORIES.TRANSACTIONS,
           initialEvent: TRANSACTION_EVENTS.SUBMITTED,
           successEvent: TRANSACTION_EVENTS.FINALIZED,
           properties,
@@ -1856,7 +2182,7 @@ export default class TransactionController extends EventEmitter {
       // fragment does not exist.
       case TRANSACTION_EVENTS.FINALIZED:
         this.createEventFragment({
-          category: 'Transactions',
+          category: EVENT.CATEGORIES.TRANSACTIONS,
           successEvent: TRANSACTION_EVENTS.FINALIZED,
           properties,
           sensitiveProperties,

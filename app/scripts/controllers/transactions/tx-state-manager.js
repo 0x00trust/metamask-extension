@@ -6,6 +6,7 @@ import createId from '../../../../shared/modules/random-id';
 import { TRANSACTION_STATUSES } from '../../../../shared/constants/transaction';
 import { METAMASK_CONTROLLER_EVENTS } from '../../metamask-controller';
 import { transactionMatchesNetwork } from '../../../../shared/modules/transaction.utils';
+import { ORIGIN_METAMASK } from '../../../../shared/constants/app';
 import {
   generateHistoryEntry,
   replayHistory,
@@ -92,7 +93,7 @@ export default class TransactionStateManager extends EventEmitter {
     if (
       opts.txParams &&
       typeof opts.origin === 'string' &&
-      opts.origin !== 'metamask'
+      opts.origin !== ORIGIN_METAMASK
     ) {
       if (typeof opts.txParams.gasPrice !== 'undefined') {
         dappSuggestedGasFees = {
@@ -126,6 +127,7 @@ export default class TransactionStateManager extends EventEmitter {
       chainId,
       loadingDefaults: true,
       dappSuggestedGasFees,
+      sendFlowHistory: [],
       ...opts,
     };
   }
@@ -249,9 +251,9 @@ export default class TransactionStateManager extends EventEmitter {
     const txsToDelete = transactions
       .reverse()
       .filter((tx) => {
-        const { nonce } = tx.txParams;
+        const { nonce, from } = tx.txParams;
         const { chainId, metamaskNetworkId, status } = tx;
-        const key = `${nonce}-${chainId ?? metamaskNetworkId}`;
+        const key = `${nonce}-${chainId ?? metamaskNetworkId}-${from}`;
         if (nonceNetworkSet.has(key)) {
           return false;
         } else if (

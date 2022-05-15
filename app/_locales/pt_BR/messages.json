@@ -143,12 +143,6 @@
   "addSuggestedTokens": {
     "message": "Adicionar tokens sugeridos"
   },
-  "addToAddressBook": {
-    "message": "Adicionar à agenda de endereços"
-  },
-  "addToAddressBookModalPlaceholder": {
-    "message": "por ex., João S."
-  },
   "addToken": {
     "message": "Adicionar token"
   },
@@ -184,9 +178,6 @@
   },
   "affirmAgree": {
     "message": "Concordo"
-  },
-  "aggregatorFeeCost": {
-    "message": "Taxa de rede do agregador"
   },
   "alertDisableTooltip": {
     "message": "Isso pode ser alterado em \"Configurações > Alertas\""
@@ -238,12 +229,6 @@
   "appNameFlask": {
     "message": "MetaMask Flask",
     "description": "The name of the application (Flask)"
-  },
-  "approvalAndAggregatorTxFeeCost": {
-    "message": "Taxa de aprovação e da rede do agregador"
-  },
-  "approvalTxGasCost": {
-    "message": "Custo em gás da transação de aprovação"
   },
   "approve": {
     "message": "Aprovar limite de gastos"
@@ -966,9 +951,6 @@
   "ensUnknownError": {
     "message": "Falha na busca de ENS."
   },
-  "enterAnAlias": {
-    "message": "Digite um pseudônimo"
-  },
   "enterMaxSpendLimit": {
     "message": "Digite um limite máximo de gastos"
   },
@@ -1039,10 +1021,6 @@
   },
   "externalExtension": {
     "message": "Extensão externa"
-  },
-  "extraApprovalGas": {
-    "message": "+$1 de gás por aprovação",
-    "description": "Expresses an additional gas amount the user will have to pay, on top of some other displayed amount. $1 is a decimal amount of gas"
   },
   "failed": {
     "message": "Falhou"
@@ -1306,25 +1284,11 @@
   "importAccountError": {
     "message": "Erro de importação de conta."
   },
-  "importAccountLinkText": {
-    "message": "importe usando a Frase de Recuperação Secreta"
-  },
   "importAccountMsg": {
     "message": "As contas importadas não estarão associadas à Frase de Recuperação Secreta da conta da MetaMask criada originalmente. Saiba mais sobre as contas importadas"
   },
   "importAccountSeedPhrase": {
     "message": "Importe uma carteira com a Frase de Recuperação Secreta"
-  },
-  "importAccountText": {
-    "message": "ou $1",
-    "description": "$1 represents the text from `importAccountLinkText` as a link"
-  },
-  "importExistingWalletDescription": {
-    "message": "Digite sua Frase de Recuperação Secreta (ou seja, a frase seed) que lhe foi dada quando você criou a sua carteira. $1",
-    "description": "$1 is the words 'Learn More' from key 'learnMore', separated here so that it can be added as a link"
-  },
-  "importExistingWalletTitle": {
-    "message": "Importar carteira existente com Frase de Recuperação Secreta"
   },
   "importMyWallet": {
     "message": "Importar minha carteira"
@@ -1453,9 +1417,6 @@
   },
   "lastConnected": {
     "message": "Conectado pela última vez em"
-  },
-  "layer1Fees": {
-    "message": "Taxas de camada 1"
   },
   "learmMoreAboutGas": {
     "message": "Quer $1 sobre o gás?"
@@ -1778,9 +1739,6 @@
     "message": "Conta $1",
     "description": "Default name of next account to be created on create account screen"
   },
-  "newCollectibleAddFailed": {
-    "message": "O colecionável não foi adicionado pelo seguinte motivo: $1"
-  },
   "newCollectibleAddedMessage": {
     "message": "O colecionável foi adicionado com sucesso!"
   },
@@ -1792,9 +1750,6 @@
   },
   "newNFTsDetected": {
     "message": "Novidade! Detecção de NFT"
-  },
-  "newNFTsDetectedInfo": {
-    "message": "Autorize que a MetaMask detecte NFTs automaticamente do Opensea e os exiba na sua carteira MetaMask."
   },
   "newNetworkAdded": {
     "message": "“$1” foi adicionado com sucesso!"
@@ -2262,9 +2217,6 @@
   "restore": {
     "message": "Restaurar"
   },
-  "restoreAccountWithSeed": {
-    "message": "Restaure sua conta com a Frase de Recuperação Secreta"
-  },
   "restoreWalletPreferences": {
     "message": "Encontramos um backup dos seus dados de $1. Gostaria de restaurar as preferências da sua carteira?",
     "description": "$1 is the date at which the data was backed up"
@@ -2332,9 +2284,6 @@
   "secretPhrase": {
     "message": "Somente a primeira conta nessa carteira será carregada automaticamente. Após concluir esse processo, para adicionar mais contas, clique no menu suspenso e selecione Criar Conta."
   },
-  "secretPhraseWarning": {
-    "message": "Se você restaurar usando outra Frase de Recuperação Secreta, sua carteira, conta e ativos atuais serão removidos permanentemente deste aplicativo. Essa ação será irreversível."
-  },
   "secretRecoveryPhrase": {
     "message": "Frase de Recuperação Secreta"
   },
@@ -2391,12 +2340,6 @@
   },
   "seedPhraseIntroTitleCopy": {
     "message": "Antes de iniciar, assista a esse vídeo curto para aprender sobre sua Frase de Recuperação Secreta e sobre como manter sua carteira segura."
-  },
-  "seedPhrasePlaceholder": {
-    "message": "Separe cada palavra com um único espaço"
-  },
-  "seedPhrasePlaceholderPaste": {
-    "message": "Cole a Frase de recuperação secreta da área de transferência"
   },
   "seedPhraseReq": {
     "message": "As Frases de Recuperação Secretas contêm 12, 15, 18, 21 ou 24 palavras"
@@ -2511,9 +2454,6 @@
   "showRecommendations": {
     "message": "Mostrar recomendações"
   },
-  "showSeedPhrase": {
-    "message": "Mostrar Frase de Recuperação Secreta"
-  },
   "showTestnetNetworks": {
     "message": "Mostrar redes de teste"
   },
@@ -2537,9 +2477,6 @@
   },
   "signed": {
     "message": "Assinado"
-  },
-  "simulationErrorMessage": {
-    "message": "É esperado que essa transação falhe. Como é esperado que sua tentativa de execução seja dispendiosa e falhe, ela não é recomendada."
   },
   "simulationErrorMessageV2": {
     "message": "Não conseguimos estimar o preço do gás. Pode haver um erro no contrato, e essa transação poderá falhar."
@@ -3211,9 +3148,6 @@
   },
   "tryAgain": {
     "message": "Tente novamente"
-  },
-  "tryAnywayOption": {
-    "message": "Vou tentar mesmo assim"
   },
   "turnOnTokenDetection": {
     "message": "Ativar detecção avançada de token"

@@ -143,12 +143,6 @@
   "addSuggestedTokens": {
     "message": "添加推荐代币"
   },
-  "addToAddressBook": {
-    "message": "添加地址簿"
-  },
-  "addToAddressBookModalPlaceholder": {
-    "message": "如：John D."
-  },
   "addToken": {
     "message": "添加代币"
   },
@@ -184,9 +178,6 @@
   },
   "affirmAgree": {
     "message": "我同意"
-  },
-  "aggregatorFeeCost": {
-    "message": "聚集器网络手续费"
   },
   "alertDisableTooltip": {
     "message": "这个可以在“设置 > 提醒”中进行更改"
@@ -238,12 +229,6 @@
   "appNameFlask": {
     "message": "MetaMask Flask",
     "description": "The name of the application (Flask)"
-  },
-  "approvalAndAggregatorTxFeeCost": {
-    "message": "批准聚合商网络手续费"
-  },
-  "approvalTxGasCost": {
-    "message": "批准交易燃料成本"
   },
   "approve": {
     "message": "批准消费限额"
@@ -952,9 +937,6 @@
   "ensUnknownError": {
     "message": "ENS 查找失败。"
   },
-  "enterAnAlias": {
-    "message": "输入别名"
-  },
   "enterMaxSpendLimit": {
     "message": "输入最高消费额度"
   },
@@ -1025,10 +1007,6 @@
   },
   "externalExtension": {
     "message": "外部扩展"
-  },
-  "extraApprovalGas": {
-    "message": "+$1 批准燃料",
-    "description": "Expresses an additional gas amount the user will have to pay, on top of some other displayed amount. $1 is a decimal amount of gas"
   },
   "failed": {
     "message": "失败"
@@ -1273,25 +1251,11 @@
   "importAccountError": {
     "message": "导入帐户时出错。"
   },
-  "importAccountLinkText": {
-    "message": "使用账户助记词导入"
-  },
   "importAccountMsg": {
     "message": "导入的账户将不会与最初创建的 MetaMask 账户助记词相关联。了解更多有关导入账户的信息 。"
   },
   "importAccountSeedPhrase": {
     "message": "使用账户助记词导入账户"
-  },
-  "importAccountText": {
-    "message": "或 $1",
-    "description": "$1 represents the text from `importAccountLinkText` as a link"
-  },
-  "importExistingWalletDescription": {
-    "message": "输入您创建$1钱包时提供的保密恢复短语（或Seed Phrase）。",
-    "description": "$1 is the words 'Learn More' from key 'learnMore', separated here so that it can be added as a link"
-  },
-  "importExistingWalletTitle": {
-    "message": "使用账户助记词导入现有钱包"
   },
   "importMyWallet": {
     "message": "导入我的钱包"
@@ -1420,9 +1384,6 @@
   },
   "lastConnected": {
     "message": "最后连接"
-  },
-  "layer1Fees": {
-    "message": "1层费用"
   },
   "learmMoreAboutGas": {
     "message": "想要有关燃料$1？"
@@ -1745,9 +1706,6 @@
     "message": "账户 $1",
     "description": "Default name of next account to be created on create account screen"
   },
-  "newCollectibleAddFailed": {
-    "message": "未添加收藏，因为：$1"
-  },
   "newCollectibleAddedMessage": {
     "message": "收藏已成功添加！"
   },
@@ -1759,9 +1717,6 @@
   },
   "newNFTsDetected": {
     "message": "新功能！NFT 检测"
-  },
-  "newNFTsDetectedInfo": {
-    "message": "允许 MetaMask自动检测Opensea 的 NFT，并在您的 MetaMask钱包中显示。"
   },
   "newNetworkAdded": {
     "message": "成功添加了“$1”！"
@@ -2229,9 +2184,6 @@
   "restore": {
     "message": "恢复"
   },
-  "restoreAccountWithSeed": {
-    "message": "使用账户助记词恢复您的账户"
-  },
   "restoreWalletPreferences": {
     "message": "已找到于 $1 的数据备份。您想恢复您的钱包设置吗？",
     "description": "$1 is the date at which the data was backed up"
@@ -2299,9 +2251,6 @@
   "secretPhrase": {
     "message": "只有这个钱包上的第一个帐户将自动加载。 完成此流程后，点击下拉菜单，然后选择创建账户。"
   },
-  "secretPhraseWarning": {
-    "message": "如果您使用另一个账户助记词来还原，您当前的钱包、帐户和资产将永久从这个应用中移除。 此操作不能撤消。"
-  },
   "secretRecoveryPhrase": {
     "message": "账户助记词"
   },
@@ -2358,12 +2307,6 @@
   },
   "seedPhraseIntroTitleCopy": {
     "message": "在开始之前，观看这个简短的视频来了解您的账户助记词以及如何保护您的钱包安全。"
-  },
-  "seedPhrasePlaceholder": {
-    "message": "用空格分隔每个单词"
-  },
-  "seedPhrasePlaceholderPaste": {
-    "message": "从剪贴板粘贴账户助记词"
   },
   "seedPhraseReq": {
     "message": "账户助记词由 12、15、18、21 或 24 个单词组成"
@@ -2475,9 +2418,6 @@
   "showRecommendations": {
     "message": "显示建议"
   },
-  "showSeedPhrase": {
-    "message": "显示账户助记词"
-  },
   "showTestnetNetworks": {
     "message": "显示测试网络"
   },
@@ -2501,9 +2441,6 @@
   },
   "signed": {
     "message": "已签名"
-  },
-  "simulationErrorMessage": {
-    "message": "此交易预计将失败。尝试执行该交易预计将是昂贵的，但失败，不推荐。"
   },
   "simulationErrorMessageV2": {
     "message": "我们无法估计燃料。合同中可能有一个错误，这笔交易可能失败。"
@@ -3169,9 +3106,6 @@
   },
   "tryAgain": {
     "message": "重试"
-  },
-  "tryAnywayOption": {
-    "message": "我仍然会试"
   },
   "turnOnTokenDetection": {
     "message": "打开增强代币检测"
