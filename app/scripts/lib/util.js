@@ -1,12 +1,7 @@
 import browser from 'webextension-polyfill';
-
-import { stripHexPrefix } from 'ethereumjs-util';
 import BN from 'bn.js';
 import { memoize } from 'lodash';
-import {
-  MAINNET_CHAIN_ID,
-  TEST_CHAINS,
-} from '../../../shared/constants/network';
+import { CHAIN_IDS, TEST_CHAINS } from '../../../shared/constants/network';
 
 import {
   ENVIRONMENT_TYPE_POPUP,
@@ -19,6 +14,7 @@ import {
   PLATFORM_EDGE,
   PLATFORM_BRAVE,
 } from '../../../shared/constants/app';
+import { stripHexPrefix } from '../../../shared/modules/hexstring-utils';
 
 /**
  * @see {@link getEnvironmentType}
@@ -27,7 +23,7 @@ const getEnvironmentTypeMemo = memoize((url) => {
   const parsedUrl = new URL(url);
   if (parsedUrl.pathname === '/popup.html') {
     return ENVIRONMENT_TYPE_POPUP;
-  } else if (['/home.html', '/phishing.html'].includes(parsedUrl.pathname)) {
+  } else if (['/home.html'].includes(parsedUrl.pathname)) {
     return ENVIRONMENT_TYPE_FULLSCREEN;
   } else if (parsedUrl.pathname === '/notification.html') {
     return ENVIRONMENT_TYPE_NOTIFICATION;
@@ -76,7 +72,7 @@ const getPlatform = () => {
  * Converts a hex string to a BN object
  *
  * @param {string} inputHex - A number represented as a hex string
- * @returns {Object} A BN object
+ * @returns {object} A BN object
  */
 function hexToBn(inputHex) {
   return new BN(stripHexPrefix(inputHex), 16);
@@ -100,6 +96,7 @@ function BnMultiplyByFraction(targetBN, numerator, denominator) {
  * Returns an Error if extension.runtime.lastError is present
  * this is a workaround for the non-standard error object that's used
  *
+ * @deprecated use checkForLastError in shared/modules/browser-runtime.utils.js
  * @returns {Error|undefined}
  */
 function checkForError() {
@@ -148,12 +145,23 @@ function bnToHex(inputBn) {
 }
 
 function getChainType(chainId) {
-  if (chainId === MAINNET_CHAIN_ID) {
+  if (chainId === CHAIN_IDS.MAINNET) {
     return 'mainnet';
   } else if (TEST_CHAINS.includes(chainId)) {
     return 'testnet';
   }
   return 'custom';
+}
+
+/**
+ * Checks if the alarmname exists in the list
+ *
+ * @param {Array} alarmList
+ * @param alarmName
+ * @returns
+ */
+function checkAlarmExists(alarmList, alarmName) {
+  return alarmList.some((alarm) => alarm.name === alarmName);
 }
 
 export {
@@ -165,4 +173,21 @@ export {
   addHexPrefix,
   bnToHex,
   getChainType,
+  checkAlarmExists,
+};
+
+// Taken from https://stackoverflow.com/a/1349426/3696652
+const characters =
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+export const generateRandomId = () => {
+  let result = '';
+  const charactersLength = characters.length;
+  for (let i = 0; i < 20; i++) {
+    result += characters.charAt(Math.floor(Math.random() * charactersLength));
+  }
+  return result;
+};
+
+export const isValidDate = (d) => {
+  return d instanceof Date && !isNaN(d);
 };

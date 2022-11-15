@@ -76,7 +76,7 @@ import {
 import {
   resetBackgroundSwapsState,
   setSwapsTokens,
-  removeToken,
+  ignoreTokens,
   setBackgroundSwapRouteState,
   setSwapsErrorKey,
 } from '../../store/actions';
@@ -87,10 +87,10 @@ import { EVENT } from '../../../shared/constants/metametrics';
 import { TRANSACTION_STATUSES } from '../../../shared/constants/transaction';
 import ActionableMessage from '../../components/ui/actionable-message';
 import { MetaMetricsContext } from '../../contexts/metametrics';
+import { getSwapsTokensReceivedFromTxMeta } from '../../../shared/lib/transactions-controller-utils';
 import {
   fetchTokens,
   fetchTopAssets,
-  getSwapsTokensReceivedFromTxMeta,
   fetchAggregatorMetadata,
   stxErrorTypes,
 } from './swaps.util';
@@ -137,7 +137,7 @@ export default function Swap() {
   );
   const defaultSwapsToken = useSelector(getSwapsDefaultToken, isEqual);
   const tokenList = useSelector(getTokenList, isEqual);
-  const listTokenValues = shuffle(Object.values(tokenList));
+  const shuffledTokensList = shuffle(Object.values(tokenList));
   const reviewSwapClickedTimestamp = useSelector(getReviewSwapClickedTimestamp);
   const pendingSmartTransactions = useSelector(getPendingSmartTransactions);
   const reviewSwapClicked = Boolean(reviewSwapClickedTimestamp);
@@ -157,16 +157,24 @@ export default function Swap() {
   const showSmartTransactionsErrorMessage =
     currentSmartTransactionsError && !smartTransactionsErrorMessageDismissed;
 
-  if (networkAndAccountSupports1559) {
-    // This will pre-load gas fees before going to the View Quote page.
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    useGasFeeEstimates();
-  }
+  useEffect(() => {
+    const leaveSwaps = async () => {
+      await dispatch(prepareToLeaveSwaps());
+      // We need to wait until "prepareToLeaveSwaps" is done, because otherwise
+      // a user would be redirected from DEFAULT_ROUTE back to Swaps.
+      history.push(DEFAULT_ROUTE);
+    };
 
-  const {
-    balance: ethBalance,
-    address: selectedAccountAddress,
-  } = selectedAccount;
+    if (!isSwapsChain) {
+      leaveSwaps();
+    }
+  }, [isSwapsChain, dispatch, history]);
+
+  // This will pre-load gas fees before going to the View Quote page.
+  useGasFeeEstimates();
+
+  const { balance: ethBalance, address: selectedAccountAddress } =
+    selectedAccount;
 
   const { destinationTokenAddedForSwap } = fetchParams || {};
 
@@ -204,7 +212,12 @@ export default function Swap() {
         destinationTokenAddedForSwap &&
         (!isAwaitingSwapRoute || conversionError)
       ) {
-        dispatch(removeToken(destinationTokenInfo?.address));
+        dispatch(
+          ignoreTokens({
+            tokensToIgnore: destinationTokenInfo?.address,
+            dontShowLoadingIndicator: true,
+          }),
+        );
       }
     };
   }, [
@@ -223,6 +236,9 @@ export default function Swap() {
 
   // eslint-disable-next-line
   useEffect(() => {
+    if (!isSwapsChain) {
+      return undefined;
+    }
     fetchTokens(chainId)
       .then((tokens) => {
         dispatch(setSwapsTokens(tokens));
@@ -240,7 +256,7 @@ export default function Swap() {
     return () => {
       dispatch(prepareToLeaveSwaps());
     };
-  }, [dispatch, chainId, networkAndAccountSupports1559]);
+  }, [dispatch, chainId, networkAndAccountSupports1559, isSwapsChain]);
 
   const hardwareWalletUsed = useSelector(isHardwareWallet);
   const hardwareWalletType = useSelector(getHardwareWalletType);
@@ -353,7 +369,9 @@ export default function Swap() {
   ]);
 
   if (!isSwapsChain) {
-    return <Redirect to={{ pathname: DEFAULT_ROUTE }} />;
+    // A user is being redirected outside of Swaps via the async "leaveSwaps" function above. In the meantime
+    // we have to prevent the code below this condition, which wouldn't work on an unsupported chain.
+    return <></>;
   }
 
   const isStxNotEnoughFundsError =
@@ -456,7 +474,7 @@ export default function Swap() {
                   <BuildQuote
                     ethBalance={ethBalance}
                     selectedAccountAddress={selectedAccountAddress}
-                    shuffledTokensList={listTokenValues}
+                    shuffledTokensList={shuffledTokensList}
                   />
                 );
               }}
@@ -497,6 +515,7 @@ export default function Swap() {
                       swapComplete={false}
                       errorKey={swapsErrorKey}
                       txHash={tradeTxData?.hash}
+                      txId={tradeTxData?.id}
                       submittedTime={tradeTxData?.submittedTime}
                     />
                   );
@@ -556,7 +575,7 @@ export default function Swap() {
               path={SMART_TRANSACTION_STATUS_ROUTE}
               exact
               render={() => {
-                return <SmartTransactionStatus />;
+                return <SmartTransactionStatus txId={tradeTxData?.id} />;
               }}
             />
             <Route
@@ -568,6 +587,7 @@ export default function Swap() {
                     swapComplete={tradeConfirmed}
                     txHash={tradeTxData?.hash}
                     tokensReceived={tokensReceived}
+                    txId={tradeTxData?.id}
                     submittingSwap={
                       routeState === 'awaiting' && !(approveTxId || tradeTxId)
                     }

@@ -1,9 +1,6 @@
 const { strict: assert } = require('assert');
-const {
-  convertToHexValue,
-  withFixtures,
-  connectDappWithExtensionPopup,
-} = require('../helpers');
+const { convertToHexValue, withFixtures } = require('../helpers');
+const FixtureBuilder = require('../fixture-builder');
 
 describe('Dapp interactions', function () {
   let windowHandles;
@@ -22,8 +19,11 @@ describe('Dapp interactions', function () {
     await withFixtures(
       {
         dapp: true,
-        fixtures: 'imported-account',
-        ganacheOptions,
+        fixtures: new FixtureBuilder().build(),
+        ganacheOptions: {
+          ...ganacheOptions,
+          concurrent: { port: 8546, chainId: 1338 },
+        },
         title: this.test.title,
       },
       async ({ driver }) => {
@@ -31,8 +31,7 @@ describe('Dapp interactions', function () {
         await driver.fill('#password', 'correct horse battery staple');
         await driver.press('#password', driver.Key.ENTER);
 
-        // Connect to Dapp0
-        await connectDappWithExtensionPopup(driver, 0);
+        await driver.openNewPage('http://127.0.0.1:8080/');
         windowHandles = await driver.getAllWindowHandles();
         extension = windowHandles[0];
 
@@ -44,6 +43,7 @@ describe('Dapp interactions', function () {
         // Trigger Notification
         await driver.switchToWindowWithTitle('E2E Test Dapp', windowHandles);
         await driver.clickElement('#addEthereumChain');
+        await driver.waitUntilXWindowHandles(3);
         await driver.switchToWindowWithTitle(
           'MetaMask Notification',
           windowHandles,
@@ -60,11 +60,13 @@ describe('Dapp interactions', function () {
     );
   });
 
-  it('should connect a second Dapp despite Metamask being locked', async function () {
+  it('should connect a second Dapp despite MetaMask being locked', async function () {
     await withFixtures(
       {
         dapp: true,
-        fixtures: 'imported-account',
+        fixtures: new FixtureBuilder()
+          .withPermissionControllerConnectedToTestDapp()
+          .build(),
         ganacheOptions,
         dappOptions: { numberOfDapps: 2 },
         title: this.test.title,
@@ -74,8 +76,7 @@ describe('Dapp interactions', function () {
         await driver.fill('#password', 'correct horse battery staple');
         await driver.press('#password', driver.Key.ENTER);
 
-        // Connect to Dapp0
-        await connectDappWithExtensionPopup(driver, 0);
+        await driver.openNewPage('http://127.0.0.1:8080/');
         windowHandles = await driver.getAllWindowHandles();
         extension = windowHandles[0];
 
@@ -87,7 +88,7 @@ describe('Dapp interactions', function () {
         // Connect to Dapp1
         await driver.openNewPage('http://127.0.0.1:8081/');
         await driver.clickElement({ text: 'Connect', tag: 'button' });
-
+        await driver.waitUntilXWindowHandles(4);
         windowHandles = await driver.getAllWindowHandles();
 
         popup = await driver.switchToWindowWithTitle(
@@ -111,11 +112,11 @@ describe('Dapp interactions', function () {
         await driver.clickElement({ text: 'Connected sites', tag: 'span' });
         const connectedDapp1 = await driver.isElementPresent({
           text: 'http://127.0.0.1:8080',
-          tag: 'span',
+          tag: 'bdi',
         });
         const connectedDapp2 = await driver.isElementPresent({
           text: 'http://127.0.0.1:8081',
-          tag: 'span',
+          tag: 'bdi',
         });
 
         assert.ok(connectedDapp1, 'Account not connected to Dapp1');

@@ -18,16 +18,17 @@ import {
 } from '../../../helpers/constants/design-system';
 import { useI18nContext } from '../../../hooks/useI18nContext';
 import { getCollectiblesDetectionNoticeDismissed } from '../../../ducks/metamask/metamask';
-import { getIsMainnet, getUseCollectibleDetection } from '../../../selectors';
+import { getIsMainnet, getUseNftDetection } from '../../../selectors';
 import { EXPERIMENTAL_ROUTE } from '../../../helpers/constants/routes';
 import {
-  checkAndUpdateAllCollectiblesOwnershipStatus,
-  detectCollectibles,
+  checkAndUpdateAllNftsOwnershipStatus,
+  detectNfts,
 } from '../../../store/actions';
 import { useCollectiblesCollections } from '../../../hooks/useCollectiblesCollections';
+import ZENDESK_URLS from '../../../helpers/constants/zendesk-url';
 
 export default function CollectiblesTab({ onAddNFT }) {
-  const useCollectibleDetection = useSelector(getUseCollectibleDetection);
+  const useNftDetection = useSelector(getUseNftDetection);
   const isMainnet = useSelector(getIsMainnet);
   const collectibleDetectionNoticeDismissed = useSelector(
     getCollectiblesDetectionNoticeDismissed,
@@ -36,11 +37,8 @@ export default function CollectiblesTab({ onAddNFT }) {
   const t = useI18nContext();
   const dispatch = useDispatch();
 
-  const {
-    collectiblesLoading,
-    collections,
-    previouslyOwnedCollection,
-  } = useCollectiblesCollections();
+  const { collectiblesLoading, collections, previouslyOwnedCollection } =
+    useCollectiblesCollections();
 
   const onEnableAutoDetect = () => {
     history.push(EXPERIMENTAL_ROUTE);
@@ -48,9 +46,9 @@ export default function CollectiblesTab({ onAddNFT }) {
 
   const onRefresh = () => {
     if (isMainnet) {
-      dispatch(detectCollectibles());
+      dispatch(detectNfts());
     }
-    checkAndUpdateAllCollectiblesOwnershipStatus();
+    checkAndUpdateAllNftsOwnershipStatus();
   };
 
   if (collectiblesLoading) {
@@ -68,7 +66,7 @@ export default function CollectiblesTab({ onAddNFT }) {
       ) : (
         <>
           {isMainnet &&
-          !useCollectibleDetection &&
+          !useNftDetection &&
           !collectibleDetectionNoticeDismissed ? (
             <CollectiblesDetectionNotice />
           ) : null}
@@ -95,7 +93,7 @@ export default function CollectiblesTab({ onAddNFT }) {
                 type="link"
                 target="_blank"
                 rel="noopener noreferrer"
-                href="https://metamask.zendesk.com/hc/en-us/articles/360058238591-NFT-tokens-in-MetaMask-wallet"
+                href={ZENDESK_URLS.NFT_TOKENS}
               >
                 {t('learnMoreUpperCase')}
               </Button>
@@ -125,7 +123,7 @@ export default function CollectiblesTab({ onAddNFT }) {
                 className="collectibles-tab__link"
                 justifyContent={JUSTIFY_CONTENT.FLEX_END}
               >
-                {isMainnet && !useCollectibleDetection ? (
+                {isMainnet && !useNftDetection ? (
                   <Button type="link" onClick={onEnableAutoDetect}>
                     {t('enableAutoDetect')}
                   </Button>

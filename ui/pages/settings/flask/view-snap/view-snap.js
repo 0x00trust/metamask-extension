@@ -24,7 +24,11 @@ import {
   removeSnap,
   removePermissionsFor,
 } from '../../../../store/actions';
-import { getSnaps, getSubjectsWithPermission } from '../../../../selectors';
+import {
+  getSnaps,
+  getSubjectsWithPermission,
+  getPermissions,
+} from '../../../../selectors';
 import { formatDate } from '../../../../helpers/utils/util';
 
 function ViewSnap() {
@@ -47,9 +51,11 @@ function ViewSnap() {
     }
   }, [history, snap]);
 
-  const authorshipPillUrl = `https://npmjs.com/package/${snap?.manifest.source.location.npm.packageName}`;
   const connectedSubjects = useSelector((state) =>
     getSubjectsWithPermission(state, snap?.permissionName),
+  );
+  const permissions = useSelector(
+    (state) => snap && getPermissions(state, snap.id),
   );
   const dispatch = useDispatch();
   const onDisconnect = (connectedOrigin, snapPermissionName) => {
@@ -87,10 +93,7 @@ function ViewSnap() {
           </Typography>
           <Box className="view-snap__pill-toggle-container">
             <Box className="view-snap__pill-container" paddingLeft={2}>
-              <SnapsAuthorshipPill
-                packageName={snap.id}
-                url={authorshipPillUrl}
-              />
+              <SnapsAuthorshipPill snapId={snap.id} />
             </Box>
             <Box paddingLeft={4} className="view-snap__toggle-container">
               <Tooltip interactive position="bottom" html={t('snapsToggle')}>
@@ -142,7 +145,7 @@ function ViewSnap() {
             </Typography>
             <Box width={FRACTIONS.TEN_TWELFTHS}>
               <PermissionsConnectPermissionList
-                permissions={snap.manifest.initialPermissions}
+                permissions={permissions ?? {}}
               />
             </Box>
           </div>

@@ -30,28 +30,21 @@ import Copy from '../../ui/icon/copy-icon.component';
 import { getCollectibleContracts } from '../../../ducks/metamask/metamask';
 import { DEFAULT_ROUTE, SEND_ROUTE } from '../../../helpers/constants/routes';
 import {
-  checkAndUpdateSingleCollectibleOwnershipStatus,
-  removeAndIgnoreCollectible,
+  checkAndUpdateSingleNftOwnershipStatus,
+  removeAndIgnoreNft,
 } from '../../../store/actions';
-import {
-  GOERLI_CHAIN_ID,
-  KOVAN_CHAIN_ID,
-  MAINNET_CHAIN_ID,
-  POLYGON_CHAIN_ID,
-  RINKEBY_CHAIN_ID,
-  ROPSTEN_CHAIN_ID,
-} from '../../../../shared/constants/network';
+import { CHAIN_IDS } from '../../../../shared/constants/network';
 import { getEnvironmentType } from '../../../../app/scripts/lib/util';
 import { ENVIRONMENT_TYPE_POPUP } from '../../../../shared/constants/app';
 import CollectibleOptions from '../collectible-options/collectible-options';
 import Button from '../../ui/button';
-import { updateSendAsset } from '../../../ducks/send';
+import { startNewDraftTransaction } from '../../../ducks/send';
 import InfoTooltip from '../../ui/info-tooltip';
-import { ERC721 } from '../../../helpers/constants/common';
 import { usePrevious } from '../../../hooks/usePrevious';
 import { useCopyToClipboard } from '../../../hooks/useCopyToClipboard';
 import { isEqualCaseInsensitive } from '../../../../shared/modules/string-utils';
-import { ASSET_TYPES } from '../../../../shared/constants/transaction';
+import { ASSET_TYPES, ERC721 } from '../../../../shared/constants/transaction';
+import CollectibleDefaultImage from '../collectible-default-image';
 
 export default function CollectibleDetails({ collectible }) {
   const {
@@ -86,27 +79,25 @@ export default function CollectibleDetails({ collectible }) {
   );
 
   const onRemove = () => {
-    dispatch(removeAndIgnoreCollectible(address, tokenId));
+    dispatch(removeAndIgnoreNft(address, tokenId));
     history.push(DEFAULT_ROUTE);
   };
 
   const prevCollectible = usePrevious(collectible);
   useEffect(() => {
     if (!isEqual(prevCollectible, collectible)) {
-      checkAndUpdateSingleCollectibleOwnershipStatus(collectible);
+      checkAndUpdateSingleNftOwnershipStatus(collectible);
     }
   }, [collectible, prevCollectible]);
 
   const getOpenSeaLink = () => {
     switch (currentNetwork) {
-      case MAINNET_CHAIN_ID:
+      case CHAIN_IDS.MAINNET:
         return `https://opensea.io/assets/${address}/${tokenId}`;
-      case POLYGON_CHAIN_ID:
+      case CHAIN_IDS.POLYGON:
         return `https://opensea.io/assets/matic/${address}/${tokenId}`;
-      case GOERLI_CHAIN_ID:
-      case KOVAN_CHAIN_ID:
-      case ROPSTEN_CHAIN_ID:
-      case RINKEBY_CHAIN_ID:
+      case CHAIN_IDS.GOERLI:
+      case CHAIN_IDS.SEPOLIA:
         return `https://testnets.opensea.io/assets/${address}/${tokenId}`;
       default:
         return null;
@@ -119,8 +110,8 @@ export default function CollectibleDetails({ collectible }) {
 
   const onSend = async () => {
     await dispatch(
-      updateSendAsset({
-        type: ASSET_TYPES.COLLECTIBLE,
+      startNewDraftTransaction({
+        type: ASSET_TYPES.NFT,
         details: collectible,
       }),
     );
@@ -176,7 +167,11 @@ export default function CollectibleDetails({ collectible }) {
             justifyContent={JUSTIFY_CONTENT.CENTER}
             className="collectible-details__card"
           >
-            <img className="collectible-details__image" src={image} />
+            {image ? (
+              <img className="collectible-details__image" src={image} />
+            ) : (
+              <CollectibleDefaultImage name={name} tokenId={tokenId} />
+            )}
           </Card>
           <Box
             flexDirection={FLEX_DIRECTION.COLUMN}
@@ -215,6 +210,7 @@ export default function CollectibleDetails({ collectible }) {
                 <Typography
                   color={COLORS.TEXT_ALTERNATIVE}
                   variant={TYPOGRAPHY.H6}
+                  overflowWrap={OVERFLOW_WRAP.BREAK_WORD}
                   boxProps={{ margin: 0, marginBottom: 4 }}
                 >
                   {description}
@@ -311,7 +307,7 @@ export default function CollectibleDetails({ collectible }) {
                 {copied ? (
                   t('copiedExclamation')
                 ) : (
-                  <Copy size={15} color="var(--color-icon-default)" />
+                  <Copy size={15} color="var(--color-icon-alternative)" />
                 )}
               </button>
             </Box>

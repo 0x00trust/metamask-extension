@@ -1,4 +1,5 @@
 const path = require('path');
+const { promises: fs } = require('fs');
 const BigNumber = require('bignumber.js');
 const mockttp = require('mockttp');
 const createStaticServer = require('../../development/create-static-server');
@@ -6,14 +7,21 @@ const enLocaleMessages = require('../../app/_locales/en/messages.json');
 const { setupMocking } = require('./mock-e2e');
 const Ganache = require('./ganache');
 const FixtureServer = require('./fixture-server');
+const PhishingWarningPageServer = require('./phishing-warning-page-server');
 const { buildWebDriver } = require('./webdriver');
 const { ensureXServerIsRunning } = require('./x-server');
+const GanacheSeeder = require('./seeder/ganache-seeder');
 
 const tinyDelayMs = 200;
 const regularDelayMs = tinyDelayMs * 2;
 const largeDelayMs = regularDelayMs * 2;
 const veryLargeDelayMs = largeDelayMs * 2;
 const dappBasePort = 8080;
+
+const createDownloadFolder = async (downloadsFolder) => {
+  await fs.rm(downloadsFolder, { recursive: true, force: true });
+  await fs.mkdir(downloadsFolder, { recursive: true });
+};
 
 const convertToHexValue = (val) => `0x${new BigNumber(val, 10).toString(16)}`;
 
@@ -22,11 +30,13 @@ async function withFixtures(options, testSuite) {
     dapp,
     fixtures,
     ganacheOptions,
+    smartContract,
     driverOptions,
     dappOptions,
     title,
     failOnConsoleError = true,
     dappPath = undefined,
+    dappPaths,
     testSpecificMock = function () {
       // do nothing.
     },
@@ -38,11 +48,22 @@ async function withFixtures(options, testSuite) {
   let secondaryGanacheServer;
   let numberOfDapps = dapp ? 1 : 0;
   const dappServer = [];
+  const phishingPageServer = new PhishingWarningPageServer();
 
   let webDriver;
+  let driver;
+  const errors = [];
   let failed = false;
   try {
     await ganacheServer.start(ganacheOptions);
+    let contractRegistry;
+
+    if (smartContract) {
+      const ganacheSeeder = new GanacheSeeder(ganacheServer.getProvider());
+      await ganacheSeeder.deploySmartContract(smartContract);
+      contractRegistry = ganacheSeeder.getContractRegistry();
+    }
+
     if (ganacheOptions?.concurrent) {
       const { port, chainId } = ganacheOptions.concurrent;
       secondaryGanacheServer = new Ganache();
@@ -54,15 +75,16 @@ async function withFixtures(options, testSuite) {
       });
     }
     await fixtureServer.start();
-    await fixtureServer.loadState(path.join(__dirname, 'fixtures', fixtures));
+    fixtureServer.loadJsonState(fixtures);
+    await phishingPageServer.start();
     if (dapp) {
       if (dappOptions?.numberOfDapps) {
         numberOfDapps = dappOptions.numberOfDapps;
       }
       for (let i = 0; i < numberOfDapps; i++) {
         let dappDirectory;
-        if (dappPath) {
-          dappDirectory = path.resolve(__dirname, dappPath);
+        if (dappPath || (dappPaths && dappPaths[i])) {
+          dappDirectory = path.resolve(__dirname, dappPath || dappPaths[i]);
         } else {
           dappDirectory = path.resolve(
             __dirname,
@@ -90,16 +112,21 @@ async function withFixtures(options, testSuite) {
     ) {
       await ensureXServerIsRunning();
     }
-    const { driver } = await buildWebDriver(driverOptions);
-    webDriver = driver;
+    driver = (await buildWebDriver(driverOptions)).driver;
+    webDriver = driver.driver;
+
+    if (process.env.SELENIUM_BROWSER === 'chrome') {
+      await driver.checkBrowserForExceptions();
+    }
 
     await testSuite({
       driver,
       mockServer,
+      contractRegistry,
     });
 
     if (process.env.SELENIUM_BROWSER === 'chrome') {
-      const errors = await driver.checkBrowserForConsoleErrors(driver);
+      errors.concat(await driver.checkBrowserForConsoleErrors(driver));
       if (errors.length) {
         const errorReports = errors.map((err) => err.message);
         const errorMessage = `Errors found in browser console:\n${errorReports.join(
@@ -116,9 +143,19 @@ async function withFixtures(options, testSuite) {
     failed = true;
     if (webDriver) {
       try {
-        await webDriver.verboseReportOnFailure(title);
+        await driver.verboseReportOnFailure(title);
       } catch (verboseReportError) {
         console.error(verboseReportError);
+      }
+      if (
+        errors.length === 0 &&
+        driver.exceptions.length > 0 &&
+        failOnConsoleError
+      ) {
+        const errorMessage = `Errors found in browser console:\n${driver.exceptions.join(
+          '\n',
+        )}`;
+        throw Error(errorMessage);
       }
     }
     throw error;
@@ -130,7 +167,7 @@ async function withFixtures(options, testSuite) {
         await secondaryGanacheServer.quit();
       }
       if (webDriver) {
-        await webDriver.quit();
+        await driver.quit();
       }
       if (dapp) {
         for (let i = 0; i < numberOfDapps; i++) {
@@ -145,6 +182,9 @@ async function withFixtures(options, testSuite) {
             });
           }
         }
+      }
+      if (phishingPageServer.isRunning()) {
+        await phishingPageServer.quit();
       }
       await mockServer.stop();
     }
@@ -172,26 +212,6 @@ const getWindowHandles = async (driver, handlesCount) => {
     (handle) => handle !== extension && handle !== dapp,
   );
   return { extension, dapp, popup };
-};
-
-const connectDappWithExtensionPopup = async (driver) => {
-  await driver.openNewPage(`http://127.0.0.1:${dappBasePort}/`);
-  await driver.delay(regularDelayMs);
-  await driver.clickElement({ text: 'Connect', tag: 'button' });
-  await driver.delay(regularDelayMs);
-
-  const windowHandles = await getWindowHandles(driver, 3);
-
-  // open extension popup and confirm connect
-  await driver.switchToWindow(windowHandles.popup);
-  await driver.delay(largeDelayMs);
-  await driver.clickElement({ text: 'Next', tag: 'button' });
-  await driver.clickElement({ text: 'Connect', tag: 'button' });
-
-  // send from dapp
-  await driver.waitUntilXWindowHandles(2);
-  await driver.switchToWindow(windowHandles.dapp);
-  await driver.delay(regularDelayMs);
 };
 
 const completeImportSRPOnboardingFlow = async (
@@ -230,11 +250,11 @@ const completeImportSRPOnboardingFlow = async (
       tag: 'button',
     });
 
-    // clicks the "Import Wallet" option
-    await driver.clickElement({ text: 'Import wallet', tag: 'button' });
-
     // clicks the "No thanks" option on the metametrics opt-in screen
     await driver.clickElement('.btn-secondary');
+
+    // clicks the "Import Wallet" option
+    await driver.clickElement({ text: 'Import wallet', tag: 'button' });
 
     // Import Secret Recovery Phrase
     await driver.pasteIntoField(
@@ -272,11 +292,11 @@ const completeImportSRPOnboardingFlowWordByWord = async (
     tag: 'button',
   });
 
-  // clicks the "Import Wallet" option
-  await driver.clickElement({ text: 'Import wallet', tag: 'button' });
-
   // clicks the "No thanks" option on the metametrics opt-in screen
   await driver.clickElement('.btn-secondary');
+
+  // clicks the "Import Wallet" option
+  await driver.clickElement({ text: 'Import wallet', tag: 'button' });
 
   const words = seedPhrase.split(' ');
   for (const word of words) {
@@ -309,7 +329,7 @@ module.exports = {
   largeDelayMs,
   veryLargeDelayMs,
   withFixtures,
-  connectDappWithExtensionPopup,
   completeImportSRPOnboardingFlow,
   completeImportSRPOnboardingFlowWordByWord,
+  createDownloadFolder,
 };

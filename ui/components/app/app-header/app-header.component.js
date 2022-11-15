@@ -4,7 +4,7 @@ import classnames from 'classnames';
 import Identicon from '../../ui/identicon';
 import MetaFoxLogo from '../../ui/metafox-logo';
 import { DEFAULT_ROUTE } from '../../../helpers/constants/routes';
-import { EVENT } from '../../../../shared/constants/metametrics';
+import { EVENT, EVENT_NAMES } from '../../../../shared/constants/metametrics';
 import NetworkDisplay from '../network-display';
 
 export default class AppHeader extends PureComponent {
@@ -20,6 +20,9 @@ export default class AppHeader extends PureComponent {
     disabled: PropTypes.bool,
     disableNetworkIndicator: PropTypes.bool,
     isAccountMenuOpen: PropTypes.bool,
+    ///: BEGIN:ONLY_INCLUDE_IN(flask)
+    unreadNotificationsCount: PropTypes.number,
+    ///: END:ONLY_INCLUDE_IN
     onClick: PropTypes.func,
   };
 
@@ -47,11 +50,8 @@ export default class AppHeader extends PureComponent {
     if (networkDropdownOpen === false) {
       this.context.trackEvent({
         category: EVENT.CATEGORIES.NAVIGATION,
-        event: 'Opened Network Menu',
-        properties: {
-          action: 'Home',
-          legacy_event: true,
-        },
+        event: EVENT_NAMES.NAV_NETWORK_MENU_OPENED,
+        properties: {},
       });
       showNetworkDropdown();
     } else {
@@ -66,11 +66,15 @@ export default class AppHeader extends PureComponent {
       selectedAddress,
       disabled,
       isAccountMenuOpen,
+      ///: BEGIN:ONLY_INCLUDE_IN(flask)
+      unreadNotificationsCount,
+      ///: END:ONLY_INCLUDE_IN
     } = this.props;
 
     return (
       isUnlocked && (
-        <div
+        <button
+          data-testid="account-menu-icon"
           className={classnames('account-menu__icon', {
             'account-menu__icon--disabled': disabled,
           })}
@@ -79,18 +83,24 @@ export default class AppHeader extends PureComponent {
               !isAccountMenuOpen &&
                 this.context.trackEvent({
                   category: EVENT.CATEGORIES.NAVIGATION,
-                  event: 'Opened Main Menu',
-                  properties: {
-                    action: 'Home',
-                    legacy_event: true,
-                  },
+                  event: EVENT_NAMES.NAV_MAIN_MENU_OPENED,
+                  properties: {},
                 });
               toggleAccountMenu();
             }
           }}
         >
           <Identicon address={selectedAddress} diameter={32} addBorder />
-        </div>
+          {
+            ///: BEGIN:ONLY_INCLUDE_IN(flask)
+            unreadNotificationsCount > 0 && (
+              <div className="account-menu__icon__notification-count">
+                {unreadNotificationsCount}
+              </div>
+            )
+            ///: END:ONLY_INCLUDE_IN
+          }
+        </button>
       )
     );
   }

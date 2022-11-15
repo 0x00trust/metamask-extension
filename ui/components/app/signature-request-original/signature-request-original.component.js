@@ -1,6 +1,5 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import { stripHexPrefix } from 'ethereumjs-util';
 import classnames from 'classnames';
 import { ObjectInspector } from 'react-inspector';
 import LedgerInstructionField from '../ledger-instruction-field';
@@ -11,8 +10,10 @@ import { getURLHostName } from '../../../helpers/utils/util';
 import Identicon from '../../ui/identicon';
 import AccountListItem from '../account-list-item';
 import { conversionUtil } from '../../../../shared/modules/conversion.utils';
+import { stripHexPrefix } from '../../../../shared/modules/hexstring-utils';
 import Button from '../../ui/button';
 import SiteIcon from '../../ui/site-icon';
+import SiteOrigin from '../../ui/site-origin';
 
 export default class SignatureRequestOriginal extends Component {
   static contextTypes = {
@@ -140,6 +141,7 @@ export default class SignatureRequestOriginal extends Component {
         </div>
         {targetSubjectMetadata?.iconUrl ? (
           <SiteIcon
+            className="request-signature__origin-icon"
             icon={targetSubjectMetadata.iconUrl}
             name={
               getURLHostName(targetSubjectMetadata.origin) ||
@@ -148,9 +150,10 @@ export default class SignatureRequestOriginal extends Component {
             size={24}
           />
         ) : null}
-        <div className="request-signature__origin">
-          {txData.msgParams.origin}
-        </div>
+        <SiteOrigin
+          className="request-signature__origin"
+          siteOrigin={txData.msgParams.origin}
+        />
       </div>
     );
   };
@@ -226,8 +229,7 @@ export default class SignatureRequestOriginal extends Component {
               className="request-signature__help-link"
               onClick={() => {
                 global.platform.openTab({
-                  url:
-                    'https://consensys.net/blog/metamask/the-seal-of-approval-know-what-youre-consenting-to-with-permissions-and-approvals-in-metamask/',
+                  url: 'https://consensys.net/blog/metamask/the-seal-of-approval-know-what-youre-consenting-to-with-permissions-and-approvals-in-metamask/',
                 });
               }}
             >

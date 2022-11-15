@@ -5,10 +5,14 @@ import Identicon from '../../../../components/ui/identicon';
 import TokenBalance from '../../../../components/ui/token-balance';
 import TokenListDisplay from '../../../../components/app/token-list-display';
 import UserPreferencedCurrencyDisplay from '../../../../components/app/user-preferenced-currency-display';
-import { ERC20, ERC721, PRIMARY } from '../../../../helpers/constants/common';
+import { PRIMARY } from '../../../../helpers/constants/common';
 import { isEqualCaseInsensitive } from '../../../../../shared/modules/string-utils';
 import { EVENT } from '../../../../../shared/constants/metametrics';
-import { ASSET_TYPES } from '../../../../../shared/constants/transaction';
+import {
+  ASSET_TYPES,
+  ERC20,
+  ERC721,
+} from '../../../../../shared/constants/transaction';
 
 export default class SendAssetRow extends Component {
   static propTypes = {
@@ -75,7 +79,7 @@ export default class SendAssetRow extends Component {
         return this.props.nativeCurrency;
       case ASSET_TYPES.TOKEN:
         return ERC20;
-      case ASSET_TYPES.COLLECTIBLE:
+      case ASSET_TYPES.NFT:
         return token?.standard;
       default:
         return null;
@@ -140,7 +144,7 @@ export default class SendAssetRow extends Component {
       if (token) {
         return this.renderToken(token);
       }
-    } else if (type === ASSET_TYPES.COLLECTIBLE) {
+    } else if (type === ASSET_TYPES.NFT) {
       const collectible = collectibles.find(
         ({ address, tokenId }) =>
           isEqualCaseInsensitive(address, details.address) &&
@@ -180,12 +184,8 @@ export default class SendAssetRow extends Component {
 
   renderNativeCurrency(insideDropdown = false) {
     const { t } = this.context;
-    const {
-      accounts,
-      selectedAddress,
-      nativeCurrency,
-      nativeCurrencyImage,
-    } = this.props;
+    const { accounts, selectedAddress, nativeCurrency, nativeCurrencyImage } =
+      this.props;
 
     const { sendableTokens, sendableCollectibles } = this.state;
 
@@ -268,7 +268,7 @@ export default class SendAssetRow extends Component {
       <div
         key={address}
         className="send-v2__asset-dropdown__asset"
-        onClick={() => this.selectToken(ASSET_TYPES.COLLECTIBLE, collectible)}
+        onClick={() => this.selectToken(ASSET_TYPES.NFT, collectible)}
       >
         <div className="send-v2__asset-dropdown__asset-icon">
           <Identicon address={address} diameter={36} image={image} />
